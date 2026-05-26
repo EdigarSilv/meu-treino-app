@@ -95,7 +95,7 @@ def salvar_treino(username, exercicios, duracao_min, notas=""):
             "data": date.today().isoformat(),
             "exercicios": json.dumps(exercicios, ensure_ascii=False),
             "duracao_min": duracao_min,
-            "notes": notas,
+            "notas": notas,  # Corrigido aqui de 'notes' para 'notas' para bater com seu banco
         }).execute()
         return r.data[0] if r.data else None
     except Exception as e:
@@ -328,7 +328,7 @@ if st.session_state.tela_atual == "login":
         st.rerun()
 
 elif st.session_state.tela_atual == "onboarding":
-    st.markdown('<h1 style="font-family:Bebas Neue,sans-serif;font-size:2.2rem">Vamos configurar seu perfil</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="font-family:Bebas Neue,sans-serif;font-size:2.2rem">Vamos configure seu perfil</h1>', unsafe_allow_html=True)
     nome     = st.text_input("Nome completo")
     username = st.text_input("Usuário (login)", placeholder="edigar.silva").lower().strip()
     senha    = st.text_input("Senha", type="password", max_chars=10)
@@ -413,7 +413,9 @@ else:
             st.success(f"{exercicio} adicionado!")
             st.rerun()
 
+        # BLOCO CORRIGIDO COM FORMULÁRIO EXCLUSIVO PARA SALVAMENTO
         if st.session_state.treino_exercicios:
+            st.markdown("---")
             st.subheader("Exercícios adicionados")
             for i, ex in enumerate(st.session_state.treino_exercicios):
                 col1, col2 = st.columns([9, 1])
@@ -424,17 +426,28 @@ else:
                         unsafe_allow_html=True
                     )
                 with col2:
-                    if st.button("🗑", key="del" + str(i)):
+                    if st.button("🗑", key=f"del_{i}_{ex['nome']}"):
                         st.session_state.treino_exercicios.pop(i)
                         st.rerun()
 
-            duracao = st.number_input("Duração do treino (min)", value=60)
-            notas   = st.text_area("Observações (opcional)", placeholder="Como foi o treino hoje?", height=80)
-            if st.button("💾 Salvar Treino", type="primary", use_container_width=True):
-                salvar_treino(username, st.session_state.treino_exercicios, duracao, notas)
-                st.success("Treino salvo com sucesso! 💪")
-                st.session_state.treino_exercicios = []
-                st.rerun()
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Encapsulado em um Form para estabilizar os inputs do Streamlit
+            with st.form("form_finalizar_treino"):
+                st.markdown("### Finalizar Treino")
+                duracao = st.number_input("Duração do treino (min)", value=60, min_value=1)
+                notas   = st.text_area("Observações (opcional)", placeholder="Como foi o treino hoje?", height=80)
+                
+                botao_salvar = st.form_submit_button("💾 Salvar Treino", type="primary", use_container_width=True)
+                
+                if botao_salvar:
+                    resposta = salvar_treino(username, st.session_state.treino_exercicios, duracao, notas)
+                    if resposta:
+                        st.success("Treino salvo com sucesso! 💪")
+                        st.session_state.treino_exercicios = []
+                        st.rerun()
+                    else:
+                        st.error("Erro ao salvar o treino. Verifique os campos ou o console do Supabase.")
 
     # ── ABA PLANOS ──────────────────────────────────────────────────────────────
     elif aba == "📅 Planos":
@@ -554,7 +567,6 @@ else:
                 exs      = t.get("exercicios", [])
                 duracao  = t.get("duracao_min", 0) or 0
                 notas    = t.get("notas", "") or ""
-                grupos   = list({ex.get("grupo","") for ex in exs})
 
                 with st.expander(data_fmt + "  •  " + str(len(exs)) + " exercícios  •  " + str(duracao) + " min"):
                     for ex in exs:
@@ -666,5 +678,3 @@ else:
                 ]
             ).properties(title="Evolução de Carga — " + ex_sel, height=300).interactive()
             st.altair_chart(chart_peso, use_container_width=True)
-
-            df_chart["volume"] = df_chart["series"] * df_chart["reps"] * df_chart["peso"]
