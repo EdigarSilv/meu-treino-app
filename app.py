@@ -31,7 +31,7 @@ defaults = {
     "perfil": None,
     "treino_exercicios": [],
     "editando_perfil": False,
-    "plano_exercicios_tmp": [],  # exercícios sendo montados no plano
+    "plano_exercicios_tmp": [],
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -97,7 +97,6 @@ def deletar_treino(treino_id):
     except Exception as e:
         st.error(f"Erro ao deletar treino: {e}"); return False
 
-# ── PLANOS ──
 def buscar_planos(username):
     try:
         r = supabase.table("planos").select("*").eq("username", username).order("criado_em", desc=False).execute()
@@ -125,6 +124,87 @@ def deletar_plano(plano_id):
         supabase.table("planos").delete().eq("id", plano_id).execute(); return True
     except Exception as e:
         st.error(f"Erro ao deletar plano: {e}"); return False
+
+# ====================== SAUDAÇÃO POR HORA ======================
+def get_saudacao():
+    hora = datetime.now().hour
+    if hora < 12:
+        return "Bom dia"
+    elif hora < 18:
+        return "Boa tarde"
+    else:
+        return "Boa noite"
+
+# ====================== TRACKER SEMANAL ======================
+def render_weekly_tracker(treinos):
+    """Renderiza os 7 dias da semana com ponto verde se treinou, vermelho se não."""
+    hoje = date.today()
+    # Início da semana atual (segunda-feira)
+    inicio_semana = hoje - timedelta(days=hoje.weekday())
+
+    datas_treino = set()
+    for t in treinos:
+        try:
+            datas_treino.add(datetime.strptime(t["data"], "%Y-%m-%d").date())
+        except:
+            pass
+
+    dias_abrev = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+    dias_html = ""
+    for i, dia_nome in enumerate(dias_abrev):
+        dia_data = inicio_semana + timedelta(days=i)
+        is_hoje = dia_data == hoje
+        is_futuro = dia_data > hoje
+
+        if is_futuro:
+            cor_ponto = "#2a2a3a"
+            cor_texto = "#333"
+            cor_fundo = "transparent"
+            borda = "1px solid #1e1e2e"
+        elif dia_data in datas_treino:
+            cor_ponto = "#22c55e"   # verde
+            cor_texto = "#22c55e"
+            cor_fundo = "rgba(34,197,94,0.08)"
+            borda = "1px solid rgba(34,197,94,0.3)"
+        else:
+            cor_ponto = "#ef4444"   # vermelho
+            cor_texto = "#ef4444"
+            cor_fundo = "rgba(239,68,68,0.08)"
+            borda = "1px solid rgba(239,68,68,0.25)"
+
+        borda_hoje = "2px solid #FFA500" if is_hoje else borda
+        sombra_hoje = "box-shadow:0 0 10px rgba(255,165,0,0.25);" if is_hoje else ""
+
+        dias_html += f"""
+        <div style="
+            display:flex; flex-direction:column; align-items:center; gap:6px;
+            background:{cor_fundo}; border:{borda_hoje}; border-radius:14px;
+            padding:10px 8px; flex:1; {sombra_hoje}
+        ">
+            <div style="
+                width:10px; height:10px; border-radius:50%;
+                background:{cor_ponto};
+                {'box-shadow:0 0 6px ' + cor_ponto + ';' if not is_futuro else ''}
+            "></div>
+            <span style="font-size:0.7rem; font-weight:700; color:{cor_texto if not is_hoje else '#FFA500'}; letter-spacing:.05em;">
+                {dia_nome}
+            </span>
+            <span style="font-size:0.65rem; color:#444;">
+                {dia_data.strftime('%d')}
+            </span>
+        </div>
+        """
+
+    st.markdown(f"""
+    <div style="margin:16px 0 20px 0;">
+        <div style="font-size:0.72rem; color:#555; text-transform:uppercase; letter-spacing:.12em; margin-bottom:10px;">
+            Semana atual
+        </div>
+        <div style="display:flex; gap:6px;">
+            {dias_html}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ====================== CSS ======================
 st.markdown("""
@@ -154,6 +234,11 @@ div[role="radiogroup"] > label { border-radius: 99px !important; padding: 6px 18
 .plano-card:hover { border-color:rgba(255,165,0,.35); }
 .plano-nome { font-family:'Bebas Neue',sans-serif; font-size:1.4rem; color:#FFA500; letter-spacing:.05em; }
 .plano-desc { font-size:0.82rem; color:#666; margin-top:2px; }
+.greeting-block { background: linear-gradient(135deg, #111118 0%, #16101e 100%); border: 1px solid #1e1e2e; border-radius: 18px; padding: 20px 22px; margin-bottom: 18px; }
+.greeting-time { font-size: 0.72rem; color: #555; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 4px; }
+.greeting-main { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: #fff; letter-spacing: .06em; line-height: 1; }
+.greeting-main span { color: #FFA500; }
+.greeting-sub { font-size: 0.82rem; color: #555; margin-top: 6px; }
 hr { border-color:#1a1a25 !important; }
 ::-webkit-scrollbar { width:4px; }
 ::-webkit-scrollbar-track { background:#0a0a0f; }
@@ -211,15 +296,39 @@ elif st.session_state.tela_atual == "onboarding":
 elif st.session_state.tela_atual == "dashboard":
     username = st.session_state.usuario_logado
     perfil   = st.session_state.perfil or {}
-    nome_exibido = perfil.get("nome", username).split()[0] if perfil else username
+    nome_completo = perfil.get("nome", username) if perfil else username
+    primeiro_nome = nome_completo.split()[0] if nome_completo else username
 
+    # ── Barra superior: saudação + botão sair ──
     col_titulo, col_sair = st.columns([8,1])
     with col_titulo:
-        hora = datetime.now().hour
-        saudacao = "Bom dia" if hora < 12 else ("Boa tarde" if hora < 18 else "Boa noite")
-        st.markdown(f'<h1 style="font-family:Bebas Neue,sans-serif;font-size:2rem;letter-spacing:.06em;margin-bottom:0">💪 {saudacao.upper()}, {nome_exibido.upper()}!</h1>', unsafe_allow_html=True)
+        saudacao = get_saudacao()
+        agora = datetime.now()
+        hora_fmt = agora.strftime("%H:%M")
+        data_fmt = agora.strftime("%A, %d de %B").capitalize()
+        dias_pt = {
+            "monday":"Segunda-feira","tuesday":"Terça-feira","wednesday":"Quarta-feira",
+            "thursday":"Quinta-feira","friday":"Sexta-feira","saturday":"Sábado","sunday":"Domingo"
+        }
+        meses_pt = {
+            "january":"janeiro","february":"fevereiro","march":"março","april":"abril",
+            "may":"maio","june":"junho","july":"julho","august":"agosto",
+            "september":"setembro","october":"outubro","november":"novembro","december":"dezembro"
+        }
+        dia_semana_en = agora.strftime("%A").lower()
+        mes_en = agora.strftime("%B").lower()
+        data_fmt = f"{dias_pt.get(dia_semana_en, dia_semana_en)}, {agora.day} de {meses_pt.get(mes_en, mes_en)}"
+
+        st.markdown(f"""
+        <div class="greeting-block">
+            <div class="greeting-time">🕐 {hora_fmt} &nbsp;·&nbsp; {data_fmt}</div>
+            <div class="greeting-main">{saudacao.upper()}, <span>{primeiro_nome.upper()}!</span></div>
+            <div class="greeting-sub">Pronto para mais um treino? 💪</div>
+        </div>
+        """, unsafe_allow_html=True)
+
     with col_sair:
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
         if st.button("Sair"):
             for k in ["usuario_logado","perfil","treino_exercicios","plano_exercicios_tmp"]:
                 st.session_state[k] = None if k not in ["treino_exercicios","plano_exercicios_tmp"] else []
@@ -234,6 +343,10 @@ elif st.session_state.tela_atual == "dashboard":
     # ══════════════════════════════════════════════════════
     if aba == "🏋️ Treino":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Registrar Treino de Hoje</h2>', unsafe_allow_html=True)
+
+        # Tracker semanal
+        treinos_semana = buscar_treinos(username, limit=30)
+        render_weekly_tracker(treinos_semana)
 
         # Carregar a partir de um plano
         planos = buscar_planos(username)
@@ -294,7 +407,6 @@ elif st.session_state.tela_atual == "dashboard":
 
         planos = buscar_planos(username)
 
-        # Lista planos existentes
         if planos:
             for p in planos:
                 exercicios_p = p.get("exercicios", [])
@@ -327,7 +439,6 @@ elif st.session_state.tela_atual == "dashboard":
         nome_plano = st.text_input("Nome do plano", placeholder="Ex: Treino A — Peito e Tríceps")
         desc_plano = st.text_input("Descrição (opcional)", placeholder="Ex: Push day, foco em hipertrofia")
 
-        # Montar exercícios do plano
         st.markdown("**Exercícios do plano:**")
         grupo_p    = st.selectbox("Grupo", list(EXERCICIOS.keys()), key="plano_grupo")
         ex_p       = st.selectbox("Exercício", EXERCICIOS[grupo_p], key="plano_ex")
@@ -432,7 +543,9 @@ elif st.session_state.tela_atual == "dashboard":
                     n = ex.get("nome","?"); contagem[n] = contagem.get(n,0)+1
             top_ex = sorted(contagem.items(), key=lambda x:x[1], reverse=True)[:5]
 
-            # Métricas
+            # Tracker semanal no Stats também
+            render_weekly_tracker(treinos)
+
             c1,c2,c3,c4 = st.columns(4)
             mets = [
                 (treinos_semana, "Esta semana"),
@@ -444,7 +557,6 @@ elif st.session_state.tela_atual == "dashboard":
                 with col:
                     st.markdown(f'<div class="metric-card"><div class="metric-value">{val}</div><div class="metric-label">{lbl}</div></div>', unsafe_allow_html=True)
 
-            # Treinos por semana
             st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;margin-top:24px">Treinos por Semana</h3>', unsafe_allow_html=True)
             semanas = []
             for i in range(7,-1,-1):
@@ -453,7 +565,6 @@ elif st.session_state.tela_atual == "dashboard":
                 semanas.append({"semana": ini.strftime("%d/%m"), "treinos": sum(1 for d in datas if ini<=d<=fim)})
             st.bar_chart(pd.DataFrame(semanas).set_index("semana"), color="#FFA500")
 
-            # Top exercícios
             st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">Top Exercícios</h3>', unsafe_allow_html=True)
             medalhas = ["🥇","🥈","🥉","4️⃣","5️⃣"]
             max_qtd  = max(c for _,c in top_ex) if top_ex else 1
@@ -462,14 +573,12 @@ elif st.session_state.tela_atual == "dashboard":
                 with col_r: st.markdown(f"**{medalhas[rank-1]} {nome}**"); st.caption(f"{qtd} vez{'es' if qtd>1 else ''}")
                 with col_b: st.progress(qtd/max_qtd)
 
-            # ── EVOLUÇÃO DE CARGA ──────────────────────────────
             st.markdown("---")
             st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">📈 Evolução de Carga</h3>', unsafe_allow_html=True)
             st.caption("Veja como o peso máximo de um exercício evoluiu ao longo do tempo.")
 
             ex_escolhido = st.selectbox("Selecione o exercício", TODOS_EXERCICIOS, key="evolucao_ex")
 
-            # Coleta dados: data → peso máximo naquele treino
             registros = {}
             for t in treinos:
                 try: dt = datetime.strptime(t["data"],"%Y-%m-%d").date()
@@ -486,7 +595,6 @@ elif st.session_state.tela_atual == "dashboard":
                     columns=["data","peso_max"]
                 ).set_index("data")
 
-                # Destaque: PR (peso máximo histórico)
                 pr = df_ev["peso_max"].max()
                 pr_data = df_ev["peso_max"].idxmax()
 
@@ -500,7 +608,6 @@ elif st.session_state.tela_atual == "dashboard":
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.line_chart(df_ev, color="#FFA500")
 
-                # Tabela resumida
                 with st.expander("Ver tabela de registros"):
                     df_show = df_ev.copy()
                     df_show.index = [d.strftime("%d/%m/%Y") if hasattr(d,"strftime") else str(d) for d in df_show.index]
