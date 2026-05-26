@@ -27,8 +27,8 @@ alt.themes.enable("dark")
 EXERCICIOS = {
     "🦵 Pernas": ["Agachamento Livre","Leg Press","Cadeira Extensora","Mesa Flexora","Stiff","Avanço","Afundo","Panturrilha na Máquina","Hack Squat"],
     "🫁 Peito": ["Supino Reto","Supino Inclinado","Supino Declinado","Crucifixo","Crossover","Peck Deck","Flexão","Pullover"],
-    "🔙 Costas": ["Puxada Frontal","Remada Curvada","Remada Unilateral","Levantamento Terra","Serrote","Puxada Fechada","Remada na Máquina","Pull-up","Puxada Alta (Pulley Frente)","Crucifixo Invertido (Halter ou Máquina)"],
-    "💪 Bíceps": ["Rosca Direta","Rosca Alternada","Rosca Martelo","Rosca Concentrada","Rosca 21","Rosca na Polia","Rosca Direta (Barra W ou Halteres)"],
+    "🔙 Costas": ["Puxada Frontal","Remada Curvada","Remada Unilateral","Levantamento Terra","Serrote","Puxada Fechada","Remada na Máquina","Pull-up"],
+    "💪 Bíceps": ["Rosca Direta","Rosca Alternada","Rosca Martelo","Rosca Concentrada","Rosca 21","Rosca na Polia"],
     "💪 Tríceps": ["Tríceps Corda","Tríceps Testa","Tríceps Francês","Mergulho","Tríceps na Polia Alta","Tríceps Coice"],
     "🏔️ Ombros": ["Desenvolvimento","Elevação Lateral","Elevação Frontal","Remada Alta","Encolhimento","Crucifixo Inverso"],
     "🎯 Abdômen": ["Abdominal Crunch","Prancha","Abdominal Oblíquo","Elevação de Pernas","Abdominal na Máquina","Russian Twist"],
@@ -46,7 +46,7 @@ defaults = {
     "treino_exercicios": [],
     "plano_exercicios_tmp": [],
     "editando_perfil": False,
-    "aba_atual": "🏋️ Treino",  # Estado para controlar a aba ativa voluntariamente
+    "aba_atual": "🏋️ Treino",
 }
 
 for k, v in defaults.items():
@@ -293,6 +293,11 @@ h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0
     background:#111118; border-left:4px solid #FFA500;
     border-radius:12px; padding:14px 16px; margin-bottom:10px;
 }
+.ex-card-done {
+    background:#0b130e; border-left:4px solid #22c55e;
+    border-radius:12px; padding:14px 16px; margin-bottom:10px;
+    opacity: 0.6;
+}
 .hist-card {
     background:#111118; border:1px solid #1e1e2e;
     border-radius:14px; padding:16px 18px; margin-bottom:12px;
@@ -338,7 +343,7 @@ elif st.session_state.tela_atual == "onboarding":
     tempo    = st.selectbox("Tempo por treino", TEMPOS)
     if st.button("Concluir Cadastro →", type="primary", use_container_width=True):
         if nome and username and senha:
-            novo = criar_usuario(username, senha, nome, objective, dias, tempo)
+            novo = criar_usuario(username, senha, nome, objetivo, dias, tempo)
             if novo:
                 st.session_state.usuario_logado = username
                 st.session_state.perfil = novo
@@ -382,14 +387,13 @@ else:
     # --- CONTROLE DE NAVEGAÇÃO DINÂMICA DAS ABAS ---
     abas = ["🏋️ Treino", "📅 Planos", "📋 Histórico", "📊 Stats", "👤 Perfil"]
     
-    # Encontra o índice da aba salva no state
     try:
         idx_inicial = abas.index(st.session_state.aba_atual)
     except ValueError:
         idx_inicial = 0
 
     aba = st.radio("", abas, horizontal=True, label_visibility="collapsed", index=idx_inicial)
-    st.session_state.aba_atual = aba  # Atualiza o state conforme clique manual
+    st.session_state.aba_atual = aba
     st.markdown("---")
 
     # ── ABA TREINO ──────────────────────────────────────────────────────────────
@@ -418,23 +422,40 @@ else:
         if st.button("➕ Adicionar Exercício", use_container_width=True, type="primary"):
             st.session_state.treino_exercicios.append({
                 "nome": exercicio, "grupo": grupo,
-                "series": int(series), "reps": int(reps), "peso": float(peso)
+                "series": int(series), "reps": int(reps), "peso": float(peso),
+                "feito": False  # Nova tag de estado padrão
             })
             st.success(f"{exercicio} adicionado!")
             st.rerun()
 
         if st.session_state.treino_exercicios:
             st.markdown("---")
-            st.subheader("Exercícios adicionados")
+            st.subheader("Exercícios Adicionados / Checklist")
+            
             for i, ex in enumerate(st.session_state.treino_exercicios):
-                col1, col2 = st.columns([9, 1])
-                with col1:
+                # Garante que a chave 'feito' exista caso venha de um plano antigo
+                if "feito" not in ex:
+                    ex["feito"] = False
+                    
+                col_check, col_texto, col_del = st.columns([1, 8, 1])
+                
+                with col_check:
+                    # Ícone muda dinamicamente dependendo do status do exercício
+                    icon_check = "✅" if ex["feito"] else "⬜"
+                    if st.button(icon_check, key=f"check_{i}_{ex['nome']}"):
+                        ex["feito"] = not ex["feito"]
+                        st.rerun()
+                        
+                with col_texto:
+                    classe_css = "ex-card-done" if ex["feito"] else "ex-card"
+                    texto_concluido = " ~~(Concluído)~~" if ex["feito"] else ""
                     st.markdown(
-                        '<div class="ex-card"><strong>' + ex["nome"] + '</strong><br>'
-                        + str(ex["series"]) + '×' + str(ex["reps"]) + ' @ ' + str(ex["peso"]) + 'kg</div>',
+                        f'<div class="{classe_css}"><strong>{ex["nome"]}{texto_concluido}</strong><br>'
+                        f'{ex["series"]}×{ex["reps"]} @ {ex["peso"]}kg</div>',
                         unsafe_allow_html=True
                     )
-                with col2:
+                    
+                with col_del:
                     if st.button("🗑", key=f"del_{i}_{ex['nome']}"):
                         st.session_state.treino_exercicios.pop(i)
                         st.rerun()
@@ -450,7 +471,18 @@ else:
                 botao_salvar = st.form_submit_button("💾 Salvar Treino", type="primary", use_container_width=True)
                 
                 if botao_salvar:
-                    resposta = salvar_treino(username, st.session_state.treino_exercicios, duracao, notas)
+                    # Filtra apenas os dados técnicos necessários para salvar (limpa a flag 'feito' antes do JSON)
+                    dados_para_salvar = []
+                    for ex in st.session_state.treino_exercicios:
+                        dados_para_salvar.append({
+                            "nome": ex["nome"],
+                            "grupo": ex["grupo"],
+                            "series": ex["series"],
+                            "reps": ex["reps"],
+                            "peso": ex["peso"]
+                        })
+                        
+                    resposta = salvar_treino(username, dados_para_salvar, duracao, notas)
                     if resposta:
                         st.success("Treino salvo com sucesso! 💪")
                         st.session_state.treino_exercicios = []
@@ -539,9 +571,14 @@ else:
 
                     col_usar, col_del = st.columns([3, 1])
                     with col_usar:
-                        # LOGICA CORRIGIDA: Salva e força redirecionamento automático de aba
                         if st.button("▶ Usar este plano hoje", key="usar_" + str(plano["id"]), use_container_width=True, type="primary"):
-                            st.session_state.treino_exercicios = [dict(e) for e in exs]
+                            # Inicializa os exercícios do plano adicionando a flag de checklist desmarcada
+                            st.session_state.treino_exercicios = []
+                            for e in exs:
+                                item = dict(e)
+                                item["feito"] = False
+                                st.session_state.treino_exercicios.append(item)
+                                
                             st.session_state.aba_atual = "🏋️ Treino"
                             st.rerun()
                     with col_del:
