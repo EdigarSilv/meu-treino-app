@@ -291,12 +291,12 @@ html, body, [class*="css"] { font-family: 'Nunito', sans-serif; background-color
 h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0.04em; }
 .ex-card {
     background:#111118; border-left:4px solid #FFA500;
-    border-radius:12px; padding:14px 16px; margin-bottom:10px;
+    border-radius:12px; padding:12px 16px; margin-bottom:10px;
 }
 .ex-card-done {
     background:#0b130e; border-left:4px solid #22c55e;
-    border-radius:12px; padding:14px 16px; margin-bottom:10px;
-    opacity: 0.6;
+    border-radius:12px; padding:12px 16px; margin-bottom:10px;
+    opacity: 0.5;
 }
 .hist-card {
     background:#111118; border:1px solid #1e1e2e;
@@ -311,6 +311,7 @@ h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0
     background:#111118; border:1px solid #1e1e2e;
     border-radius:14px; padding:18px; text-align:center;
 }
+div[data-testid="stForm"] { border: 1px solid #1e1e2e !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -423,7 +424,7 @@ else:
             st.session_state.treino_exercicios.append({
                 "nome": exercicio, "grupo": grupo,
                 "series": int(series), "reps": int(reps), "peso": float(peso),
-                "feito": False  # Nova tag de estado padrão
+                "feito": False
             })
             st.success(f"{exercicio} adicionado!")
             st.rerun()
@@ -433,14 +434,13 @@ else:
             st.subheader("Exercícios Adicionados / Checklist")
             
             for i, ex in enumerate(st.session_state.treino_exercicios):
-                # Garante que a chave 'feito' exista caso venha de um plano antigo
                 if "feito" not in ex:
                     ex["feito"] = False
                     
-                col_check, col_texto, col_del = st.columns([1, 8, 1])
+                col_check, col_texto, col_peso_edit, col_del = st.columns([1, 5, 3, 1])
                 
                 with col_check:
-                    # Ícone muda dinamicamente dependendo do status do exercício
+                    st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
                     icon_check = "✅" if ex["feito"] else "⬜"
                     if st.button(icon_check, key=f"check_{i}_{ex['nome']}"):
                         ex["feito"] = not ex["feito"]
@@ -448,21 +448,34 @@ else:
                         
                 with col_texto:
                     classe_css = "ex-card-done" if ex["feito"] else "ex-card"
-                    texto_concluido = " ~~(Concluído)~~" if ex["feito"] else ""
+                    texto_concluido = " ~~(Feito)~~" if ex["feito"] else ""
                     st.markdown(
                         f'<div class="{classe_css}"><strong>{ex["nome"]}{texto_concluido}</strong><br>'
-                        f'{ex["series"]}×{ex["reps"]} @ {ex["peso"]}kg</div>',
+                        f'<span style="font-size:0.85rem;color:#888;">{ex["series"]}×{ex["reps"]} séries</span></div>',
                         unsafe_allow_html=True
                     )
                     
+                with col_peso_edit:
+                    # Input de número compacto para editar a carga em tempo real na própria linha
+                    novo_peso = st.number_input(
+                        "Carga (kg)", 
+                        min_value=0.0, 
+                        max_value=500.0, 
+                        value=float(ex["peso"]), 
+                        step=0.5, 
+                        key=f"peso_inline_{i}_{ex['nome']}"
+                    )
+                    if novo_peso != ex["peso"]:
+                        ex["peso"] = novo_peso
+                        
                 with col_del:
+                    st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
                     if st.button("🗑", key=f"del_{i}_{ex['nome']}"):
                         st.session_state.treino_exercicios.pop(i)
                         st.rerun()
 
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Form seguro para submissão dos dados no banco
             with st.form("form_finalizar_treino"):
                 st.markdown("### Finalizar Treino")
                 duracao = st.number_input("Duração do treino (min)", value=60, min_value=1)
@@ -471,7 +484,6 @@ else:
                 botao_salvar = st.form_submit_button("💾 Salvar Treino", type="primary", use_container_width=True)
                 
                 if botao_salvar:
-                    # Filtra apenas os dados técnicos necessários para salvar (limpa a flag 'feito' antes do JSON)
                     dados_para_salvar = []
                     for ex in st.session_state.treino_exercicios:
                         dados_para_salvar.append({
@@ -488,7 +500,7 @@ else:
                         st.session_state.treino_exercicios = []
                         st.rerun()
                     else:
-                        st.error("Erro ao salvar o treino. Verifique os campos ou o console do Supabase.")
+                        st.error("Erro ao salvar o treino.")
 
     # ── ABA PLANOS ──────────────────────────────────────────────────────────────
     elif aba == "📅 Planos":
@@ -572,7 +584,6 @@ else:
                     col_usar, col_del = st.columns([3, 1])
                     with col_usar:
                         if st.button("▶ Usar este plano hoje", key="usar_" + str(plano["id"]), use_container_width=True, type="primary"):
-                            # Inicializa os exercícios do plano adicionando a flag de checklist desmarcada
                             st.session_state.treino_exercicios = []
                             for e in exs:
                                 item = dict(e)
