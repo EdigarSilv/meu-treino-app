@@ -46,6 +46,7 @@ defaults = {
     "treino_exercicios": [],
     "plano_exercicios_tmp": [],
     "editando_perfil": False,
+    "aba_atual": "🏋️ Treino",  # Estado para controlar a aba ativa voluntariamente
 }
 
 for k, v in defaults.items():
@@ -95,7 +96,7 @@ def salvar_treino(username, exercicios, duracao_min, notas=""):
             "data": date.today().isoformat(),
             "exercicios": json.dumps(exercicios, ensure_ascii=False),
             "duracao_min": duracao_min,
-            "notas": notas,  # Corrigido aqui de 'notes' para 'notas' para bater com seu banco
+            "notas": notas,
         }).execute()
         return r.data[0] if r.data else None
     except Exception as e:
@@ -337,7 +338,7 @@ elif st.session_state.tela_atual == "onboarding":
     tempo    = st.selectbox("Tempo por treino", TEMPOS)
     if st.button("Concluir Cadastro →", type="primary", use_container_width=True):
         if nome and username and senha:
-            novo = criar_usuario(username, senha, nome, objetivo, dias, tempo)
+            novo = criar_usuario(username, senha, nome, objective, dias, tempo)
             if novo:
                 st.session_state.usuario_logado = username
                 st.session_state.perfil = novo
@@ -353,7 +354,7 @@ else:
     perfil        = st.session_state.perfil or {}
     primeiro_nome = (perfil.get("nome", username) or username).split()[0]
 
-    # --- PROCESSAMENTO DO HORÁRIO COM FUSO HORÁRIO ATIVO ---
+    # --- PROCESSAMENTO DO HORÁRIO ---
     agora_no_fuso = datetime.now(FUSO)
     hora_atual = agora_no_fuso.hour
     minuto_atual = agora_no_fuso.strftime('%M')
@@ -378,8 +379,17 @@ else:
             st.session_state.tela_atual = "login"
             st.rerun()
 
+    # --- CONTROLE DE NAVEGAÇÃO DINÂMICA DAS ABAS ---
     abas = ["🏋️ Treino", "📅 Planos", "📋 Histórico", "📊 Stats", "👤 Perfil"]
-    aba  = st.radio("", abas, horizontal=True, label_visibility="collapsed")
+    
+    # Encontra o índice da aba salva no state
+    try:
+        idx_inicial = abas.index(st.session_state.aba_atual)
+    except ValueError:
+        idx_inicial = 0
+
+    aba = st.radio("", abas, horizontal=True, label_visibility="collapsed", index=idx_inicial)
+    st.session_state.aba_atual = aba  # Atualiza o state conforme clique manual
     st.markdown("---")
 
     # ── ABA TREINO ──────────────────────────────────────────────────────────────
@@ -413,7 +423,6 @@ else:
             st.success(f"{exercicio} adicionado!")
             st.rerun()
 
-        # BLOCO CORRIGIDO COM FORMULÁRIO EXCLUSIVO PARA SALVAMENTO
         if st.session_state.treino_exercicios:
             st.markdown("---")
             st.subheader("Exercícios adicionados")
@@ -432,7 +441,7 @@ else:
 
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Encapsulado em um Form para estabilizar os inputs do Streamlit
+            # Form seguro para submissão dos dados no banco
             with st.form("form_finalizar_treino"):
                 st.markdown("### Finalizar Treino")
                 duracao = st.number_input("Duração do treino (min)", value=60, min_value=1)
@@ -494,7 +503,7 @@ else:
                     if st.button("💾 Salvar Plano", type="primary", use_container_width=True):
                         if nome_plano:
                             salvar_plano(username, nome_plano, descricao, st.session_state.plano_exercicios_tmp)
-                            st.success("Plano saved!")
+                            st.success("Plano salvo!")
                             st.session_state.plano_exercicios_tmp = []
                             st.rerun()
                         else:
@@ -530,10 +539,10 @@ else:
 
                     col_usar, col_del = st.columns([3, 1])
                     with col_usar:
+                        # LOGICA CORRIGIDA: Salva e força redirecionamento automático de aba
                         if st.button("▶ Usar este plano hoje", key="usar_" + str(plano["id"]), use_container_width=True, type="primary"):
                             st.session_state.treino_exercicios = [dict(e) for e in exs]
-                            st.session_state.tela_atual = "dashboard"
-                            st.success("Plano carregado! Vá para a aba Treino.")
+                            st.session_state.aba_atual = "🏋️ Treino"
                             st.rerun()
                     with col_del:
                         if st.button("🗑 Excluir", key="dplano_" + str(plano["id"]), use_container_width=True):
