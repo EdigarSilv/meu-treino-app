@@ -131,7 +131,8 @@ def salvar_plano(username, nome_plano, descricao, exercicios):
 
 def buscar_planos(username):
     try:
-        r = supabase.table("planos").select("*").eq("username", username).order("created_at", desc=True).execute()
+        # ✅ CORRIGIDO: ordenando por "id" em vez de "created_at" (coluna inexistente)
+        r = supabase.table("planos").select("*").eq("username", username).order("id", desc=True).execute()
         planos = r.data or []
         for p in planos:
             if isinstance(p.get("exercicios"), str):
@@ -682,7 +683,6 @@ else:
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meu Perfil</h2>', unsafe_allow_html=True)
 
         if not st.session_state.editando_perfil:
-            # Visualização
             st.markdown(
                 '<div style="background:#111118;border:1px solid #2a1f3a;border-radius:18px;padding:24px;">'
                 '<div style="font-size:2.5rem;text-align:center;margin-bottom:8px;">👤</div>'
@@ -706,7 +706,6 @@ else:
                 st.session_state.editando_perfil = True
                 st.rerun()
         else:
-            # Edição
             st.markdown("#### Editar informações")
             novo_nome    = st.text_input("Nome", value=perfil.get("nome", ""))
             novo_obj     = st.selectbox("Objetivo", OBJETIVOS, index=OBJETIVOS.index(perfil.get("objetivo", OBJETIVOS[0])) if perfil.get("objetivo") in OBJETIVOS else 0)
