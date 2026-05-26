@@ -147,63 +147,73 @@ def get_saudacao():
     else:
         return "Boa noite"
 
-# ====================== TRACKER SEMANAL ======================
+# ====================== TRACKER SEMANAL (CORRIGIDO) ======================
 def render_weekly_tracker(treinos):
     hoje = date.today()
     inicio_semana = hoje - timedelta(days=hoje.weekday())
     datas_treino = {datetime.strptime(t["data"], "%Y-%m-%d").date() for t in treinos if t.get("data")}
-    
+
     dias_abrev = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
     dias_html = ""
-    
+
     for i, dia_nome in enumerate(dias_abrev):
         dia_data = inicio_semana + timedelta(days=i)
         is_hoje = dia_data == hoje
         is_futuro = dia_data > hoje
 
         if is_futuro:
-            cor_ponto = "#2a2a3a"
-            cor_texto = "#444"
-            cor_fundo = "transparent"
-            borda = "1px solid #1e1e2e"
+            cor_ponto  = "#2a2a3a"
+            cor_texto  = "#444"
+            cor_fundo  = "transparent"
+            borda      = "1px solid #1e1e2e"
+            sombra_card = ""
+            glow_ponto  = ""
         elif dia_data in datas_treino:
-            cor_ponto = "#22c55e"
-            cor_texto = "#22c55e"
-            cor_fundo = "rgba(34,197,94,0.12)"
-            borda = "1px solid rgba(34,197,94,0.4)"
+            cor_ponto  = "#22c55e"
+            cor_texto  = "#22c55e"
+            cor_fundo  = "rgba(34,197,94,0.12)"
+            borda      = "1px solid rgba(34,197,94,0.4)"
+            sombra_card = ""
+            glow_ponto  = "box-shadow:0 0 6px #22c55e;"
         elif is_hoje:
-            cor_ponto = "#f59e0b"
-            cor_texto = "#f59e0b"
-            cor_fundo = "rgba(245,158,11,0.15)"
-            borda = "2px solid #f59e0b"
+            cor_ponto  = "#f59e0b"
+            cor_texto  = "#f59e0b"
+            cor_fundo  = "rgba(245,158,11,0.15)"
+            borda      = "2px solid #f59e0b"
+            sombra_card = "box-shadow:0 0 12px rgba(245,158,11,0.4);"
+            glow_ponto  = "box-shadow:0 0 6px #f59e0b;"
         else:
-            cor_ponto = "#ef4444"
-            cor_texto = "#ef4444"
-            cor_fundo = "rgba(239,68,68,0.08)"
-            borda = "1px solid rgba(239,68,68,0.3)"
+            cor_ponto  = "#ef4444"
+            cor_texto  = "#ef4444"
+            cor_fundo  = "rgba(239,68,68,0.08)"
+            borda      = "1px solid rgba(239,68,68,0.3)"
+            sombra_card = ""
+            glow_ponto  = "box-shadow:0 0 6px #ef4444;"
 
-        sombra = "box-shadow: 0 0 12px rgba(245,158,11,0.4);" if is_hoje else ""
-        
-        dias_html += f"""
-        <div style="display:flex; flex-direction:column; align-items:center; gap:6px; background:{cor_fundo}; 
-                    border:{borda}; border-radius:14px; padding:10px 8px; flex:1; {sombra}">
-            <div style="width:10px; height:10px; border-radius:50%; background:{cor_ponto}; 
-                        {'box-shadow:0 0 6px ' + cor_ponto + ';' if not is_futuro else ''}"></div>
-            <span style="font-size:0.75rem; font-weight:700; color:{cor_texto}; letter-spacing:.05em;">{dia_nome}</span>
-            <span style="font-size:0.7rem; color:#666;">{dia_data.strftime('%d')}</span>
-        </div>
-        """
+        card = "".join([
+            '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;',
+            'background:', cor_fundo, ';',
+            'border:', borda, ';',
+            'border-radius:14px;padding:10px 8px;flex:1;', sombra_card, '">',
+            '<div style="width:10px;height:10px;border-radius:50%;background:',
+            cor_ponto, ';', glow_ponto, '"></div>',
+            '<span style="font-size:0.75rem;font-weight:700;color:', cor_texto,
+            ';letter-spacing:.05em;">', dia_nome, '</span>',
+            '<span style="font-size:0.7rem;color:#666;">', dia_data.strftime('%d'), '</span>',
+            '</div>',
+        ])
+        dias_html += card
 
-    st.markdown(f"""
-    <div style="margin:20px 0 24px 0;">
-        <div style="font-size:0.75rem; color:#666; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">
-            SEMANA ATUAL
-        </div>
-        <div style="display:flex; gap:8px;">
-            {dias_html}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    html = "".join([
+        '<div style="margin:20px 0 24px 0;">',
+        '<div style="font-size:0.75rem;color:#666;text-transform:uppercase;',
+        'letter-spacing:0.1em;margin-bottom:8px;">SEMANA ATUAL</div>',
+        '<div style="display:flex;gap:8px;">',
+        dias_html,
+        '</div></div>',
+    ])
+
+    st.markdown(html, unsafe_allow_html=True)
 
 # ====================== CSS ======================
 st.markdown("""
@@ -232,10 +242,10 @@ h1, h2, h3 {
 if st.session_state.tela_atual == "login":
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<h1 style="font-family:Bebas Neue,sans-serif;font-size:3rem;letter-spacing:.06em;text-align:center">🏋️‍♂️ MEU TREINO</h1>', unsafe_allow_html=True)
-    
+
     usuario = st.text_input("Usuário", placeholder="edigar.silva").lower().strip()
     senha = st.text_input("Senha", type="password", max_chars=10)
-    
+
     if st.button("Entrar →", use_container_width=True, type="primary"):
         user = login_usuario(usuario, senha)
         if user:
@@ -245,21 +255,21 @@ if st.session_state.tela_atual == "login":
             st.rerun()
         else:
             st.error("Usuário ou senha incorretos.")
-    
+
     if st.button("Criar Nova Conta", use_container_width=True):
         st.session_state.tela_atual = "onboarding"
         st.rerun()
 
 elif st.session_state.tela_atual == "onboarding":
     st.markdown('<h1 style="font-family:Bebas Neue,sans-serif;font-size:2.2rem">Vamos configurar seu perfil</h1>', unsafe_allow_html=True)
-    
-    nome = st.text_input("Nome completo")
+
+    nome     = st.text_input("Nome completo")
     username = st.text_input("Usuário (login)", placeholder="edigar.silva").lower().strip()
-    senha = st.text_input("Senha", type="password", max_chars=10)
+    senha    = st.text_input("Senha", type="password", max_chars=10)
     objetivo = st.selectbox("Objetivo Principal", OBJETIVOS)
-    dias = st.selectbox("Dias de treino por semana", [3,4,5,6])
-    tempo = st.selectbox("Tempo por treino", TEMPOS)
-    
+    dias     = st.selectbox("Dias de treino por semana", [3,4,5,6])
+    tempo    = st.selectbox("Tempo por treino", TEMPOS)
+
     if st.button("Concluir Cadastro →", type="primary", use_container_width=True):
         if nome and username and senha:
             novo = criar_usuario(username, senha, nome, objetivo, dias, tempo)
@@ -268,25 +278,28 @@ elif st.session_state.tela_atual == "onboarding":
                 st.session_state.perfil = novo
                 st.session_state.tela_atual = "dashboard"
                 st.rerun()
-    
+
     if st.button("← Voltar ao login"):
         st.session_state.tela_atual = "login"
         st.rerun()
 
 # ====================== DASHBOARD ======================
 else:
-    username = st.session_state.usuario_logado
-    perfil = st.session_state.perfil or {}
+    username     = st.session_state.usuario_logado
+    perfil       = st.session_state.perfil or {}
     primeiro_nome = (perfil.get("nome", username) or username).split()[0]
 
     col_titulo, col_sair = st.columns([8,1])
     with col_titulo:
-        st.markdown(f"""
-        <div style="background:linear-gradient(135deg,#111118,#1a1428);border:1px solid #2a1f3a;border-radius:18px;padding:20px 24px;">
-            <div style="color:#888;font-size:0.8rem;">{datetime.now().strftime('%H:%M')} • {datetime.now().strftime('%d de %B')}</div>
-            <h2 style="margin:8px 0 0 0;">{get_saudacao()}, {primeiro_nome.upper()}!</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,#111118,#1a1428);border:1px solid #2a1f3a;'
+            'border-radius:18px;padding:20px 24px;">'
+            '<div style="color:#888;font-size:0.8rem;">'
+            + datetime.now().strftime('%H:%M') + ' • ' + datetime.now().strftime('%d de %B') +
+            '</div><h2 style="margin:8px 0 0 0;">'
+            + get_saudacao() + ', ' + primeiro_nome.upper() + '!</h2></div>',
+            unsafe_allow_html=True
+        )
 
     with col_sair:
         if st.button("Sair"):
@@ -294,20 +307,21 @@ else:
             st.rerun()
 
     abas = ["🏋️ Treino", "📅 Planos", "📋 Histórico", "📊 Stats", "👤 Perfil"]
-    aba = st.radio("", abas, horizontal=True, label_visibility="collapsed")
+    aba  = st.radio("", abas, horizontal=True, label_visibility="collapsed")
     st.markdown("---")
 
+    # ── ABA TREINO ──────────────────────────────────────────────────────────────
     if aba == "🏋️ Treino":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Registrar Treino de Hoje</h2>', unsafe_allow_html=True)
-        
+
         treinos_semana = buscar_treinos(username, limit=30)
         render_weekly_tracker(treinos_semana)
 
-        grupo = st.selectbox("Grupo Muscular", list(EXERCICIOS.keys()))
+        grupo    = st.selectbox("Grupo Muscular", list(EXERCICIOS.keys()))
         exercicio = st.selectbox("Exercício", EXERCICIOS[grupo])
-        
+
         ultimo_peso = get_ultimo_peso(username, exercicio)
-        sugestao = round(ultimo_peso + 2.5, 1) if ultimo_peso > 0 else 0.0
+        sugestao    = round(ultimo_peso + 2.5, 1) if ultimo_peso > 0 else 0.0
 
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -337,7 +351,11 @@ else:
             for i, ex in enumerate(st.session_state.treino_exercicios):
                 col1, col2 = st.columns([9,1])
                 with col1:
-                    st.markdown(f'<div class="ex-card"><strong>{ex["nome"]}</strong><br>{ex["series"]}×{ex["reps"]} @ {ex["peso"]}kg</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div class="ex-card"><strong>' + ex["nome"] + '</strong><br>'
+                        + str(ex["series"]) + '×' + str(ex["reps"]) + ' @ ' + str(ex["peso"]) + 'kg</div>',
+                        unsafe_allow_html=True
+                    )
                 with col2:
                     if st.button("🗑", key=f"del{i}"):
                         st.session_state.treino_exercicios.pop(i)
@@ -350,20 +368,20 @@ else:
                 st.session_state.treino_exercicios = []
                 st.rerun()
 
+    # ── ABA STATS ───────────────────────────────────────────────────────────────
     elif aba == "📊 Stats":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">📈 Evolução de Carga</h2>', unsafe_allow_html=True)
-        
+
         ex = st.selectbox("Selecione o exercício", TODOS_EXERCICIOS)
         df = get_evolucao_carga(username, ex)
-        
+
         if df.empty:
             st.info("Ainda não há registros de carga para este exercício.")
         else:
             df_chart = df.copy()
             df_chart['data'] = pd.to_datetime(df_chart['data'])
             df_chart = df_chart.sort_values('data')
-            
-            # Gráfico de Peso
+
             chart_peso = alt.Chart(df_chart).mark_line(point=True, strokeWidth=3).encode(
                 x=alt.X('data:T', title='Data', axis=alt.Axis(format='%d/%m', labelAngle=-45)),
                 y=alt.Y('peso:Q', title='Peso (kg)', scale=alt.Scale(zero=False)),
@@ -379,12 +397,11 @@ else:
                 width=700,
                 height=400
             ).interactive()
-            
+
             st.altair_chart(chart_peso, use_container_width=True)
-            
-            # Gráfico de Volume
+
             df_chart['volume'] = df_chart['series'] * df_chart['reps'] * df_chart['peso']
-            
+
             chart_volume = alt.Chart(df_chart).mark_bar(color='#22c55e', opacity=0.85).encode(
                 x=alt.X('data:T', title='Data', axis=alt.Axis(format='%d/%m', labelAngle=-45)),
                 y=alt.Y('volume:Q', title='Volume (kg)'),
@@ -398,10 +415,9 @@ else:
                 width=700,
                 height=350
             ).interactive()
-            
+
             st.altair_chart(chart_volume, use_container_width=True)
-            
-            # Métricas
+
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Carga Atual", f"{df_chart['peso'].iloc[-1]:.1f} kg")
@@ -412,5 +428,6 @@ else:
             with col4:
                 st.metric("Treinos Registrados", len(df_chart))
 
+    # ── OUTRAS ABAS ─────────────────────────────────────────────────────────────
     else:
         st.info("Em desenvolvimento...")
