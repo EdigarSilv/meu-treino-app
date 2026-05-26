@@ -4,6 +4,15 @@ from supabase import create_client, Client
 import json
 import pandas as pd
 import altair as alt
+import pytz
+
+# ====================== CONFIGURAÇÃO DE FUSO HORÁRIO ======================
+FUSO = pytz.timezone("America/Fortaleza")
+
+MESES_BR = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho",
+    7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+}
 
 # ====================== SUPABASE ======================
 SUPABASE_URL = "https://kecmxzamzkgnwlfyadjt.supabase.co"
@@ -86,7 +95,7 @@ def salvar_treino(username, exercicios, duracao_min, notas=""):
             "data": date.today().isoformat(),
             "exercicios": json.dumps(exercicios, ensure_ascii=False),
             "duracao_min": duracao_min,
-            "notas": notas,
+            "notes": notas,
         }).execute()
         return r.data[0] if r.data else None
     except Exception as e:
@@ -131,7 +140,6 @@ def salvar_plano(username, nome_plano, descricao, exercicios):
 
 def buscar_planos(username):
     try:
-        # ✅ CORRIGIDO: ordenando por "id" em vez de "created_at" (coluna inexistente)
         r = supabase.table("planos").select("*").eq("username", username).order("id", desc=True).execute()
         planos = r.data or []
         for p in planos:
@@ -203,7 +211,7 @@ def get_stats_gerais(username):
             total_series += ex.get("series", 0)
             g = ex.get("grupo", "Outro")
             grupos_count[g] = grupos_count.get(g, 0) + 1
-    # Streak atual
+    
     datas = sorted({datetime.strptime(t["data"], "%Y-%m-%d").date() for t in treinos}, reverse=True)
     streak = 0
     ref = date.today()
@@ -224,30 +232,6 @@ def get_stats_gerais(username):
     }
 
 # ====================== SAUDAÇÃO ======================
-from datetime import datetime
-import pytz
-
-# 1. Configura o fuso horário
-FUSO = pytz.timezone("America/Fortaleza")
-
-# Dictonary para traduzir os meses para português (evita depender do sistema do servidor)
-MESES_BR = {
-    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho",
-    7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-}
-
-# 2. Pega o momento exato no fuso correto
-agora_no_fuso = datetime.now(FUSO)
-
-hora_atual = agora_no_fuso.hour
-minuto_atual = agora_no_fuso.strftime('%M')
-dia_atual = agora_no_fuso.day
-mes_atual = MESES_BR[agora_no_fuso.month]
-
-# 3. Monta a string do Header ajustada
-texto_header = f"{hora_atual}:{minuto_atual} • {dia_atual} de {mes_atual}"
-
-# 4. Função de Saudação atualizada para usar a hora do fuso
 def get_saudacao(hora):
     if hora < 12:
         return "BOM DIA"
@@ -255,9 +239,6 @@ def get_saudacao(hora):
         return "BOA TARDE"
     else:
         return "BOA NOITE"
-
-# Exemplo de como aplicar no seu layout do Streamlit:
-# saudacao_texto = f"{get_saudacao(hora_atual)}, EDIGAR!"
 
 # ====================== TRACKER SEMANAL ======================
 def render_weekly_tracker(treinos):
@@ -327,7 +308,7 @@ h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== TELAS ======================
+# ====================== TEMPLATE DAS TELAS ======================
 if st.session_state.tela_atual == "login":
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<h1 style="font-family:Bebas Neue,sans-serif;font-size:3rem;letter-spacing:.06em;text-align:center">🏋️‍♂️ MEU TREINO</h1>', unsafe_allow_html=True)
@@ -372,15 +353,24 @@ else:
     perfil        = st.session_state.perfil or {}
     primeiro_nome = (perfil.get("nome", username) or username).split()[0]
 
+    # --- PROCESSAMENTO DO HORÁRIO COM FUSO HORÁRIO ATIVO ---
+    agora_no_fuso = datetime.now(FUSO)
+    hora_atual = agora_no_fuso.hour
+    minuto_atual = agora_no_fuso.strftime('%M')
+    dia_atual = agora_no_fuso.day
+    mes_atual = MESES_BR[agora_no_fuso.month]
+    
+    texto_header = f"{hora_atual}:{minuto_atual} • {dia_atual} de {mes_atual}"
+
     col_titulo, col_sair = st.columns([8, 1])
     with col_titulo:
         st.markdown(
             '<div style="background:linear-gradient(135deg,#111118,#1a1428);border:1px solid #2a1f3a;'
             'border-radius:18px;padding:20px 24px;">'
             '<div style="color:#888;font-size:0.8rem;">'
-            + datetime.now().strftime('%H:%M') + ' • ' + datetime.now().strftime('%d de %B') +
+            + texto_header +
             '</div><h2 style="margin:8px 0 0 0;">'
-            + get_saudacao() + ', ' + primeiro_nome.upper() + '!</h2></div>',
+            + get_saudacao(hora_atual) + ', ' + primeiro_nome.upper() + '!</h2></div>',
             unsafe_allow_html=True
         )
     with col_sair:
@@ -454,7 +444,7 @@ else:
             nome_plano  = st.text_input("Nome do plano", placeholder="Ex: Treino A - Peito e Tríceps")
             descricao   = st.text_input("Descrição", placeholder="Ex: Foco em hipertrofia")
 
-            grupo_p    = st.selectbox("Grupo Muscular", list(EXERCICIOS.keys()), key="plano_grupo")
+            grupo_p     = st.selectbox("Grupo Muscular", list(EXERCICIOS.keys()), key="plano_grupo")
             exercicio_p = st.selectbox("Exercício", EXERCICIOS[grupo_p], key="plano_ex")
             cp1, cp2, cp3 = st.columns(3)
             with cp1:
@@ -491,7 +481,7 @@ else:
                     if st.button("💾 Salvar Plano", type="primary", use_container_width=True):
                         if nome_plano:
                             salvar_plano(username, nome_plano, descricao, st.session_state.plano_exercicios_tmp)
-                            st.success("Plano salvo!")
+                            st.success("Plano saved!")
                             st.session_state.plano_exercicios_tmp = []
                             st.rerun()
                         else:
@@ -545,7 +535,6 @@ else:
         if not treinos:
             st.info("Nenhum treino registrado ainda.")
         else:
-            # Filtro por mês
             meses_disponiveis = sorted(
                 {t["data"][:7] for t in treinos if t.get("data")}, reverse=True
             )
@@ -597,7 +586,6 @@ else:
         if not stats:
             st.info("Registre treinos para ver suas estatísticas.")
         else:
-            # Cards de resumo
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.markdown(
@@ -630,7 +618,6 @@ else:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Frequência por grupo muscular
             if stats.get("grupos_count"):
                 st.markdown("#### Grupos Musculares Mais Treinados")
                 df_grupos = pd.DataFrame(
@@ -643,7 +630,6 @@ else:
                 ).properties(height=280).interactive()
                 st.altair_chart(chart_grupos, use_container_width=True)
 
-            # Treinos por semana (últimas 8 semanas)
             if stats.get("datas"):
                 st.markdown("#### Treinos por Semana")
                 df_datas = pd.DataFrame({"data": list(stats["datas"])})
@@ -657,7 +643,6 @@ else:
                 ).properties(height=220).interactive()
                 st.altair_chart(chart_sem, use_container_width=True)
 
-        # Evolução de carga por exercício
         st.markdown("---")
         st.markdown("#### 📈 Evolução de Carga por Exercício")
         ex_sel = st.selectbox("Selecione o exercício", TODOS_EXERCICIOS)
@@ -683,71 +668,3 @@ else:
             st.altair_chart(chart_peso, use_container_width=True)
 
             df_chart["volume"] = df_chart["series"] * df_chart["reps"] * df_chart["peso"]
-            chart_vol = alt.Chart(df_chart).mark_bar(color="#22c55e", opacity=0.85).encode(
-                x=alt.X("data:T", title="Data", axis=alt.Axis(format="%d/%m", labelAngle=-45)),
-                y=alt.Y("volume:Q", title="Volume (kg)"),
-                tooltip=[
-                    alt.Tooltip("data:T", title="Data", format="%d/%m/%Y"),
-                    alt.Tooltip("volume:Q", title="Volume", format=",.0f"),
-                    alt.Tooltip("peso:Q", title="Peso"),
-                ]
-            ).properties(title="Volume Treinado — " + ex_sel, height=250).interactive()
-            st.altair_chart(chart_vol, use_container_width=True)
-
-            m1, m2, m3, m4 = st.columns(4)
-            with m1:
-                st.metric("Carga Atual", str(df_chart["peso"].iloc[-1]) + " kg")
-            with m2:
-                st.metric("Melhor Carga", str(df_chart["peso"].max()) + " kg")
-            with m3:
-                st.metric("Progresso", "+" + str(round(df_chart["peso"].max() - df_chart["peso"].min(), 1)) + " kg")
-            with m4:
-                st.metric("Sessões", len(df_chart))
-
-    # ── ABA PERFIL ───────────────────────────────────────────────────────────────
-    elif aba == "👤 Perfil":
-        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meu Perfil</h2>', unsafe_allow_html=True)
-
-        if not st.session_state.editando_perfil:
-            st.markdown(
-                '<div style="background:#111118;border:1px solid #2a1f3a;border-radius:18px;padding:24px;">'
-                '<div style="font-size:2.5rem;text-align:center;margin-bottom:8px;">👤</div>'
-                '<div style="text-align:center;font-size:1.4rem;font-weight:700;">' + (perfil.get("nome") or username) + '</div>'
-                '<div style="text-align:center;color:#888;font-size:0.9rem;margin-bottom:20px;">@' + username + '</div>'
-                '<hr style="border-color:#1e1e2e;margin:16px 0;">'
-                '<div style="display:flex;justify-content:space-between;margin-bottom:10px;">'
-                '<span style="color:#888;">Objetivo</span>'
-                '<span style="color:#FFA500;font-weight:600;">' + (perfil.get("objetivo") or "—") + '</span></div>'
-                '<div style="display:flex;justify-content:space-between;margin-bottom:10px;">'
-                '<span style="color:#888;">Dias por semana</span>'
-                '<span style="font-weight:600;">' + str(perfil.get("dias_por_semana") or "—") + 'x</span></div>'
-                '<div style="display:flex;justify-content:space-between;">'
-                '<span style="color:#888;">Tempo por treino</span>'
-                '<span style="font-weight:600;">' + (perfil.get("tempo_disponivel") or "—") + '</span></div>'
-                '</div>',
-                unsafe_allow_html=True
-            )
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("✏️ Editar Perfil", use_container_width=True):
-                st.session_state.editando_perfil = True
-                st.rerun()
-        else:
-            st.markdown("#### Editar informações")
-            novo_nome    = st.text_input("Nome", value=perfil.get("nome", ""))
-            novo_obj     = st.selectbox("Objetivo", OBJETIVOS, index=OBJETIVOS.index(perfil.get("objetivo", OBJETIVOS[0])) if perfil.get("objetivo") in OBJETIVOS else 0)
-            novo_dias    = st.selectbox("Dias por semana", [3,4,5,6], index=[3,4,5,6].index(perfil.get("dias_por_semana", 3)) if perfil.get("dias_por_semana") in [3,4,5,6] else 0)
-            novo_tempo   = st.selectbox("Tempo por treino", TEMPOS, index=TEMPOS.index(perfil.get("tempo_disponivel", TEMPOS[0])) if perfil.get("tempo_disponivel") in TEMPOS else 0)
-
-            col_s, col_c = st.columns(2)
-            with col_s:
-                if st.button("💾 Salvar", type="primary", use_container_width=True):
-                    atualizado = atualizar_perfil(username, novo_nome, novo_obj, novo_dias, novo_tempo)
-                    if atualizado:
-                        st.session_state.perfil = atualizado
-                        st.session_state.editando_perfil = False
-                        st.success("Perfil atualizado!")
-                        st.rerun()
-            with col_c:
-                if st.button("Cancelar", use_container_width=True):
-                    st.session_state.editando_perfil = False
-                    st.rerun()
