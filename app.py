@@ -224,8 +224,16 @@ def get_stats_gerais(username):
     }
 
 # ====================== SAUDAÇÃO ======================
+from datetime import datetime
+import pytz
+
+# Configura o fuso horário correto (UTC-3, que atende o Maranhão)
+FUSO = pytz.timezone("America/Fortaleza")
+
 def get_saudacao():
-    hora = datetime.now().hour
+    # Agora pegamos a hora exata baseada no fuso horário configurado
+    hora = datetime.now(FUSO).hour
+    
     if hora < 12:
         return "Bom dia"
     elif hora < 18:
