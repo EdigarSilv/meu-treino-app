@@ -227,19 +227,37 @@ def get_stats_gerais(username):
 from datetime import datetime
 import pytz
 
-# Configura o fuso horário correto (UTC-3, que atende o Maranhão)
+# 1. Configura o fuso horário
 FUSO = pytz.timezone("America/Fortaleza")
 
-def get_saudacao():
-    # Agora pegamos a hora exata baseada no fuso horário configurado
-    hora = datetime.now(FUSO).hour
-    
+# Dictonary para traduzir os meses para português (evita depender do sistema do servidor)
+MESES_BR = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho",
+    7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+}
+
+# 2. Pega o momento exato no fuso correto
+agora_no_fuso = datetime.now(FUSO)
+
+hora_atual = agora_no_fuso.hour
+minuto_atual = agora_no_fuso.strftime('%M')
+dia_atual = agora_no_fuso.day
+mes_atual = MESES_BR[agora_no_fuso.month]
+
+# 3. Monta a string do Header ajustada
+texto_header = f"{hora_atual}:{minuto_atual} • {dia_atual} de {mes_atual}"
+
+# 4. Função de Saudação atualizada para usar a hora do fuso
+def get_saudacao(hora):
     if hora < 12:
-        return "Bom dia"
+        return "BOM DIA"
     elif hora < 18:
-        return "Boa tarde"
+        return "BOA TARDE"
     else:
-        return "Boa noite"
+        return "BOA NOITE"
+
+# Exemplo de como aplicar no seu layout do Streamlit:
+# saudacao_texto = f"{get_saudacao(hora_atual)}, EDIGAR!"
 
 # ====================== TRACKER SEMANAL ======================
 def render_weekly_tracker(treinos):
