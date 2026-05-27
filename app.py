@@ -398,6 +398,7 @@ else:
     st.markdown("---")
 
     # ── ABA TREINO ──────────────────────────────────────────────────────────────
+# ── ABA TREINO (VERSÃO ESTÁVEL) ──────────────────────────────────────────────
     if aba == "🏋️ Treino":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Registrar Treino de Hoje</h2>', unsafe_allow_html=True)
         treinos_semana = buscar_treinos(username, limit=30)
@@ -433,22 +434,39 @@ else:
             st.markdown("---")
             st.subheader("Exercícios Adicionados / Checklist")
             
+            # Criamos uma função de callback para atualizar o peso sem dar rerun na tela inteira
+            def atualizar_peso_session(index, chave_input):
+                st.session_state.treino_exercicios[index]["peso"] = st.session_state[chave_input]
+
+            # Função de callback para o checkbox
+            def atualizar_status_feito(index, chave_check):
+                st.session_state.treino_exercicios[index]["feito"] = st.session_state[chave_check]
+
             for i, ex in enumerate(st.session_state.treino_exercicios):
                 if "feito" not in ex:
                     ex["feito"] = False
                     
                 col_check, col_texto, col_peso_edit, col_del = st.columns([1, 5, 3, 1])
                 
+                # Identificadores únicos para os componentes de cada linha
+                chk_key = f"chk_state_{i}_{ex['nome']}"
+                inp_key = f"peso_state_{i}_{ex['nome']}"
+
                 with col_check:
-                    st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
-                    icon_check = "✅" if ex["feito"] else "⬜"
-                    if st.button(icon_check, key=f"check_{i}_{ex['nome']}"):
-                        ex["feito"] = not ex["feito"]
-                        st.rerun()
+                    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+                    # O checkbox nativo altera o estado e não quebra a renderização
+                    st.checkbox(
+                        "", 
+                        value=ex["feito"], 
+                        key=chk_key, 
+                        label_visibility="collapsed",
+                        on_change=atualizar_status_feito,
+                        args=(i, chk_key)
+                    )
                         
                 with col_texto:
-                    classe_css = "ex-card-done" if ex["feito"] else "ex-card"
-                    texto_concluido = " ~~(Feito)~~" if ex["feito"] else ""
+                    classe_css = "ex-card-done" if st.session_state.get(chk_key, ex["feito"]) else "ex-card"
+                    texto_concluido = " ~?(Feito)~?" if st.session_state.get(chk_key, ex["feito"]) else ""
                     st.markdown(
                         f'<div class="{classe_css}"><strong>{ex["nome"]}{texto_concluido}</strong><br>'
                         f'<span style="font-size:0.85rem;color:#888;">{ex["series"]}×{ex["reps"]} séries</span></div>',
@@ -456,17 +474,17 @@ else:
                     )
                     
                 with col_peso_edit:
-                    # Input de número compacto para editar a carga em tempo real na própria linha
-                    novo_peso = st.number_input(
+                    # O on_change garante que o peso mude na memória sem reiniciar o script inteiro do zero
+                    st.number_input(
                         "Carga (kg)", 
                         min_value=0.0, 
                         max_value=500.0, 
                         value=float(ex["peso"]), 
                         step=0.5, 
-                        key=f"peso_inline_{i}_{ex['nome']}"
+                        key=inp_key,
+                        on_change=atualizar_peso_session,
+                        args=(i, inp_key)
                     )
-                    if novo_peso != ex["peso"]:
-                        ex["peso"] = novo_peso
                         
                 with col_del:
                     st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
@@ -485,13 +503,13 @@ else:
                 
                 if botao_salvar:
                     dados_para_salvar = []
-                    for ex in st.session_state.treino_exercicios:
+                    for ex_salvar in st.session_state.treino_exercicios:
                         dados_para_salvar.append({
-                            "nome": ex["nome"],
-                            "grupo": ex["grupo"],
-                            "series": ex["series"],
-                            "reps": ex["reps"],
-                            "peso": ex["peso"]
+                            "nome": ex_salvar["nome"],
+                            "grupo": ex_salvar["grupo"],
+                            "series": ex_salvar["series"],
+                            "reps": ex_salvar["reps"],
+                            "peso": ex_salvar["peso"]
                         })
                         
                     resposta = salvar_treino(username, dados_para_salvar, duracao, notas)
