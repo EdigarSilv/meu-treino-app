@@ -438,7 +438,7 @@ else:
 
         if st.button("➕ Adicionar Exercício", use_container_width=True, type="primary"):
             st.session_state.treino_exercicios.append({
-                "nome": exercicio, "grupo": grupo,
+                "nome": exercicio, "grupo": group,
                 "series": int(series), "reps": int(reps), "peso": float(peso),
                 "feito": False
             })
@@ -449,7 +449,6 @@ else:
             st.markdown("---")
             st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">EXERCÍCIOS ADICIONADOS / CHECKLIST</h3>', unsafe_allow_html=True)
             
-            # --- CALLBACKS QUE IMPEDEM O RESET DA TELA ---
             def callback_atualizar_peso(idx, key_nome):
                 if key_nome in st.session_state:
                     st.session_state.treino_exercicios[idx]["peso"] = float(st.session_state[key_nome])
@@ -458,7 +457,6 @@ else:
                 if key_nome in st.session_state:
                     st.session_state.treino_exercicios[idx]["feito"] = bool(st.session_state[key_nome])
 
-            # Recria os estados na memória antes de renderizar os inputs para evitar perda de foco
             for i, ex in enumerate(st.session_state.treino_exercicios):
                 chk_key = f"chk_estabilizado_{i}_{ex['nome'].replace(' ', '_')}"
                 inp_key = f"peso_estabilizado_{i}_{ex['nome'].replace(' ', '_')}"
@@ -468,7 +466,6 @@ else:
                 if inp_key not in st.session_state:
                     st.session_state[inp_key] = float(ex.get("peso", 0.0))
 
-            # Renderização das linhas
             for i, ex in enumerate(st.session_state.treino_exercicios):
                 col_check, col_texto, col_peso_edit, col_del = st.columns([0.8, 5.2, 3, 1])
                 
@@ -510,7 +507,6 @@ else:
                     st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
                     if st.button("🗑", key=f"del_{i}_{ex['nome']}"):
                         st.session_state.treino_exercicios.pop(i)
-                        # Remove as chaves antigas da memória para evitar lixo eletrônico
                         st.session_state.pop(chk_key, None)
                         st.session_state.pop(inp_key, None)
                         st.rerun()
@@ -537,8 +533,7 @@ else:
                         
                     resposta = salvar_treino(username, dados_para_salvar, duracao, notas)
                     if resposta:
-                        st.success("Treino salvo com sucesso! 💪")
-                        # Limpa chaves dinâmicas da memória para o próximo treino vir limpo
+                        st.success("Treino saved! 💪")
                         for k in list(st.session_state.keys()):
                             if "chk_estabilizado_" in k or "peso_estabilizado_" in k:
                                 st.session_state.pop(k, None)
@@ -630,7 +625,6 @@ else:
                     with col_usar:
                         if st.button("▶ Usar este plano hoje", key="usar_" + str(plano["id"]), use_container_width=True, type="primary"):
                             st.session_state.treino_exercicios = []
-                            # Limpa os estados antigos de inputs na memória para forçar os pesos novos do plano carregado
                             for k in list(st.session_state.keys()):
                                 if "chk_estabilizado_" in k or "peso_estabilizado_" in k:
                                     st.session_state.pop(k, None)
@@ -693,128 +687,85 @@ else:
                             'color:#888;font-size:0.85rem;">📝 ' + notas + '</div>',
                             unsafe_allow_html=True
                         )
-                    if st.button("🗑 Deletar este treino", key="hdel_" + str(t.get("id",""))):
-                        deletar_treino(t["id"])
-                        st.rerun()
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("🗑 Deletar este treino", key=f"hdel_{t.get('id')}", use_container_width=True):
+                        if deletar_treino(t.get("id")):
+                            st.success("Treino deletado!")
+                            st.rerun()
 
-    # ── ABA STATS ───────────────────────────────────────────────────────────────
+    # ── ABA STATS ────────────────────────────────────────────────────────────────
     elif st.session_state.aba_atual == "📊 Stats":
-        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Estatísticas</h2>', unsafe_allow_html=True)
-
+        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Minhas Estatísticas</h2>', unsafe_allow_html=True)
+        
         stats = get_stats_gerais(username)
         if not stats:
-            st.info("Registre treinos para ver suas estatísticas.")
+            st.info("Adicione treinos no histórico para ver os gráficos de evolução.")
         else:
             c1, c2, c3, c4 = st.columns(4)
             with c1:
-                st.markdown(
-                    '<div class="stat-card">'
-                    '<div style="font-size:1.8rem;font-weight:700;color:#FFA500;">' + str(stats["total_treinos"]) + '</div>'
-                    '<div style="color:#888;font-size:0.8rem;margin-top:4px;">TREINOS TOTAIS</div>'
-                    '</div>', unsafe_allow_html=True
-                )
+                st.markdown(f'<div class="stat-card"><span style="color:#888;font-size:0.8rem;">TREINOS</span><br><b style="font-size:1.8rem;">{stats["total_treinos"]}</b></div>', unsafe_allow_html=True)
             with c2:
-                st.markdown(
-                    '<div class="stat-card">'
-                    '<div style="font-size:1.8rem;font-weight:700;color:#22c55e;">' + str(stats["total_horas"]) + 'h</div>'
-                    '<div style="color:#888;font-size:0.8rem;margin-top:4px;">HORAS TREINADAS</div>'
-                    '</div>', unsafe_allow_html=True
-                )
+                st.markdown(f'<div class="stat-card"><span style="color:#888;font-size:0.8rem;">HORAS</span><br><b style="font-size:1.8rem;">{stats["total_horas"]}h</b></div>', unsafe_allow_html=True)
             with c3:
-                st.markdown(
-                    '<div class="stat-card">'
-                    '<div style="font-size:1.8rem;font-weight:700;color:#a855f7;">' + str(stats["total_series"]) + '</div>'
-                    '<div style="color:#888;font-size:0.8rem;margin-top:4px;">SÉRIES TOTAIS</div>'
-                    '</div>', unsafe_allow_html=True
-                )
+                st.markdown(f'<div class="stat-card"><span style="color:#888;font-size:0.8rem;">SÉRIES</span><br><b style="font-size:1.8rem;">{stats["total_series"]}</b></div>', unsafe_allow_html=True)
             with c4:
-                st.markdown(
-                    '<div class="stat-card">'
-                    '<div style="font-size:1.8rem;font-weight:700;color:#f59e0b;">' + str(stats["streak"]) + '🔥</div>'
-                    '<div style="color:#888;font-size:0.8rem;margin-top:4px;">DIAS SEGUIDOS</div>'
-                    '</div>', unsafe_allow_html=True
-                )
-
+                st.markdown(f'<div class="stat-card"><span style="color:#888;font-size:0.8rem;">FOGO (STREAK)</span><br><b style="font-size:1.8rem;">🔥 {stats["streak"]}</b></div>', unsafe_allow_html=True)
+            
             st.markdown("<br>", unsafe_allow_html=True)
+            
+            st.markdown('### Evolução de Carga')
+            ex_sel = st.selectbox("Selecione o Exercício para ver o gráfico", TODOS_EXERCICIOS)
+            df_evolucao = get_evolucao_carga(username, ex_sel)
+            
+            if df_evolucao.empty:
+                st.info(f"Nenhum registro de carga para o exercício: {ex_sel}")
+            else:
+                df_evolucao = df_evolucao.sort_values("data")
+                
+                chart = alt.Chart(df_evolucao).mark_line(point=True, color="#FFA500").encode(
+                    x=alt.X("data:T", title="Data"),
+                    y=alt.Y("peso:Q", title="Carga Máxima (kg)"),
+                    tooltip=["data:T", "peso:Q", "series:Q", "reps:Q"]
+                ).properties(height=300).interactive()
+                
+                st.altair_chart(chart, use_container_width=True)
+                
+                st.dataframe(df_evolucao[["data", "peso", "series", "reps", "volume"]].rename(
+                    columns={"data": "Data", "peso": "Peso (kg)", "series": "Séries", "reps": "Reps", "volume": "Vol. Total (kg)"}
+                ), use_container_width=True, hide_index=True)
 
-            if stats.get("grupos_count"):
-                st.markdown("#### Grupos Musculares Mais Treinados")
-                df_grupos = pd.DataFrame(
-                    list(stats["grupos_count"].items()), columns=["Grupo", "Exercícios"]
-                ).sort_values("Exercícios", ascending=False)
-                chart_grupos = alt.Chart(df_grupos).mark_bar(color="#FFA500", opacity=0.85).encode(
-                    x=alt.X("Exercícios:Q", title="Qtd. de exercícios"),
-                    y=alt.Y("Grupo:N", sort="-x", title=""),
-                    tooltip=["Grupo", "Exercícios"]
-                ).properties(height=280).interactive()
-                st.altair_chart(chart_grupos, use_container_width=True)
-
-            if stats.get("datas"):
-                st.markdown("#### Treinos por Semana")
-                df_datas = pd.DataFrame({"data": list(stats["datas"])})
-                df_datas["data"] = pd.to_datetime(df_datas["data"])
-                df_datas["semana"] = df_datas["data"].dt.to_period("W").apply(lambda r: r.start_time)
-                df_sem = df_datas.groupby("semana").size().reset_index(name="treinos").tail(8)
-                chart_sem = alt.Chart(df_sem).mark_bar(color="#22c55e", opacity=0.85).encode(
-                    x=alt.X("semana:T", title="Semana", axis=alt.Axis(format="%d/%m")),
-                    y=alt.Y("treinos:Q", title="Treinos", axis=alt.Axis(tickMinStep=1)),
-                    tooltip=[alt.Tooltip("semana:T", format="%d/%m/%Y"), "treinos"]
-                ).properties(height=220).interactive()
-                st.altair_chart(chart_sem, use_container_width=True)
-
-        st.markdown("---")
-        st.markdown("#### 📈 Evolução de Carga por Exercício")
-        ex_sel = st.selectbox("Selecione o exercício", TODOS_EXERCICIOS)
-        df = get_evolucao_carga(username, ex_sel)
-        if df.empty:
-            st.info("Sem registros de carga para este exercício.")
-        else:
-            df_chart = df.copy()
-            df_chart["data"] = pd.to_datetime(df_chart["data"])
-            df_chart = df_chart.sort_values("data")
-
-            chart_peso = alt.Chart(df_chart).mark_line(point=True, strokeWidth=3).encode(
-                x=alt.X("data:T", title="Data", axis=alt.Axis(format="%d/%m", labelAngle=-45)),
-                y=alt.Y("peso:Q", title="Peso (kg)", scale=alt.Scale(zero=False)),
-                color=alt.value("#FFA500"),
-                tooltip=[
-                    alt.Tooltip("data:T", title="Data", format="%d/%m/%Y"),
-                    alt.Tooltip("peso:Q", title="Peso (kg)", format=".1f"),
-                    alt.Tooltip("series:Q", title="Séries"),
-                    alt.Tooltip("reps:Q", title="Reps"),
-                ]
-            ).properties(title="Evolução de Carga — " + ex_sel, height=300).interactive()
-            st.altair_chart(chart_peso, use_container_width=True)
-
-    # ── ABA PERFIL ───────────────────────────────────────────────────────────────
+    # ── ABA PERFIL ────────────────────────────────────────────────────────────────
     elif st.session_state.aba_atual == "👤 Perfil":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meu Perfil</h2>', unsafe_allow_html=True)
-        st.markdown(f"**Usuário:** `{username}`")
         
         if not st.session_state.editando_perfil:
-            st.write(f"**Nome:** {perfil.get('nome', 'Não informado')}")
-            st.write(f"**Objetivo:** {perfil.get('objetivo', 'Não informado')}")
-            st.write(f"**Frequência:** {perfil.get('dias_por_semana', '3')} dias por semana")
-            st.write(f"**Tempo Disponível:** {perfil.get('tempo_disponivel', '1h')}")
-            if st.button("📝 Editar Perfil", use_container_width=True):
+            st.markdown(f"**Nome:** {perfil.get('nome')}")
+            st.markdown(f"**Usuário:** {perfil.get('username')}")
+            st.markdown(f"**Objetivo:** {perfil.get('objetivo')}")
+            st.markdown(f"**Frequência Semanal:** {perfil.get('dias_por_semana')} dias")
+            st.markdown(f"**Tempo Disponível:** {perfil.get('tempo_disponivel')}")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("✏️ Editar Perfil", use_container_width=True):
                 st.session_state.editando_perfil = True
                 st.rerun()
         else:
-            novo_nome = st.text_input("Nome completo", value=perfil.get("nome", ""))
-            novo_obj  = st.selectbox("Objetivo Principal", OBJETIVOS, index=OBJETIVOS.index(perfil.get("objetivo", OBJETIVOS[0])) if perfil.get("objetivo") in OBJETIVOS else 0)
-            novo_dias = st.selectbox("Dias de treino por semana", [3,4,5,6], index=[3,4,5,6].index(perfil.get("dias_por_semana", 4)) if perfil.get("dias_por_semana") in [3,4,5,6] else 1)
-            novo_temp = st.selectbox("Tempo por treino", TEMPOS, index=TEMPOS.index(perfil.get("tempo_disponivel", TEMPOS[1])) if perfil.get("tempo_disponivel") in TEMPOS else 1)
+            nome_ed = st.text_input("Nome completo", value=perfil.get("nome"))
+            objetivo_ed = st.selectbox("Objetivo Principal", OBJETIVOS, index=OBJETIVOS.index(perfil.get("objetivo")) if perfil.get("objetivo") in OBJETIVOS else 0)
+            dias_ed = st.selectbox("Dias de treino por semana", [3,4,5,6], index=[3,4,5,6].index(perfil.get("dias_por_semana")) if perfil.get("dias_por_semana") in [3,4,5,6] else 0)
+            tempo_ed = st.selectbox("Tempo por treino", TEMPOS, index=TEMPOS.index(perfil.get("tempo_disponivel")) if perfil.get("tempo_disponivel") in TEMPOS else 0)
             
             c_salvar, c_cancelar = st.columns(2)
             with c_salvar:
                 if st.button("💾 Salvar Alterações", type="primary", use_container_width=True):
-                    res = atualizar_perfil(username, novo_nome, novo_obj, novo_dias, novo_temp)
+                    res = atualizar_perfil(username, nome_ed, objetivo_ed, dias_ed, tempo_ed)
                     if res:
                         st.session_state.perfil = res
                         st.session_state.editando_perfil = False
                         st.success("Perfil atualizado!")
                         st.rerun()
             with c_cancelar:
-                if st.button("❌ Cancelar", use_container_width=True):
+                if st.button("Cancelar", use_container_width=True):
                     st.session_state.editando_perfil = False
                     st.rerun()
