@@ -96,7 +96,7 @@ def salvar_treino(username, exercicios, duracao_min, notas=""):
             "data": date.today().isoformat(),
             "exercicios": json.dumps(exercicios, ensure_ascii=False),
             "duracao_min": duracao_min,
-            "notas": notas,
+            "notes": notas,  # Ajustado de acordo com seu schema se necessário
         }).execute()
         return r.data[0] if r.data else None
     except Exception as e:
@@ -335,7 +335,7 @@ if st.session_state.tela_atual == "login":
         st.rerun()
 
 elif st.session_state.tela_atual == "onboarding":
-    st.markdown('<h1 style="font-family:Bebas Neue,sans-serif;font-size:2.2rem">Vamos configure seu perfil</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="font-family:Bebas Neue,sans-serif;font-size:2.2rem">Vamos configurar seu perfil</h1>', unsafe_allow_html=True)
     nome     = st.text_input("Nome completo")
     username = st.text_input("Usuário (login)", placeholder="edigar.silva").lower().strip()
     senha    = st.text_input("Senha", type="password", max_chars=10)
@@ -383,9 +383,12 @@ else:
     with col_sair:
         if st.button("Sair"):
             st.session_state.tela_atual = "login"
+            st.session_state.usuario_logado = None
+            st.session_state.perfil = None
+            st.session_state.treino_exercicios = []
             st.rerun()
 
-    # --- CONTROLE DE NAVEGAÇÃO DINÂMICA DAS ABAS ---
+    # --- CONTROLE DE NAVEGAÇÃO DINÂMICA ---
     abas = ["🏋️ Treino", "📅 Planos", "📋 Histórico", "📊 Stats", "👤 Perfil"]
     
     try:
@@ -398,7 +401,6 @@ else:
     st.markdown("---")
 
     # ── ABA TREINO ──────────────────────────────────────────────────────────────
-# ── ABA TREINO (VERSÃO ESTÁVEL) ──────────────────────────────────────────────
     if aba == "🏋️ Treino":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Registrar Treino de Hoje</h2>', unsafe_allow_html=True)
         treinos_semana = buscar_treinos(username, limit=30)
@@ -432,41 +434,40 @@ else:
 
         if st.session_state.treino_exercicios:
             st.markdown("---")
-            st.subheader("Exercícios Adicionados / Checklist")
+            st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">EXERCÍCIOS ADICIONADOS / CHECKLIST</h3>', unsafe_allow_html=True)
             
-            # Criamos uma função de callback para atualizar o peso sem dar rerun na tela inteira
-            def atualizar_peso_session(index, chave_input):
-                st.session_state.treino_exercicios[index]["peso"] = st.session_state[chave_input]
+            # --- FUNÇÕES CALLBACK ESSENCIAIS PARA ESTABILIDADE ---
+            def callback_atualizar_peso(idx, key_nome):
+                st.session_state.treino_exercicios[idx]["peso"] = float(st.session_state[key_nome])
 
-            # Função de callback para o checkbox
-            def atualizar_status_feito(index, chave_check):
-                st.session_state.treino_exercicios[index]["feito"] = st.session_state[chave_check]
+            def callback_atualizar_feito(idx, key_nome):
+                st.session_state.treino_exercicios[idx]["feito"] = bool(st.session_state[key_nome])
 
             for i, ex in enumerate(st.session_state.treino_exercicios):
                 if "feito" not in ex:
                     ex["feito"] = False
                     
-                col_check, col_texto, col_peso_edit, col_del = st.columns([1, 5, 3, 1])
+                col_check, col_texto, col_peso_edit, col_del = st.columns([0.8, 5.2, 3, 1])
                 
-                # Identificadores únicos para os componentes de cada linha
-                chk_key = f"chk_state_{i}_{ex['nome']}"
-                inp_key = f"peso_state_{i}_{ex['nome']}"
+                chk_key = f"chk_estabilizado_{i}_{ex['nome'].replace(' ', '_')}"
+                inp_key = f"peso_estabilizado_{i}_{ex['nome'].replace(' ', '_')}"
 
                 with col_check:
                     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-                    # O checkbox nativo altera o estado e não quebra a renderização
+                    # Gerencia o estado e salva silenciosamente via callback
                     st.checkbox(
                         "", 
                         value=ex["feito"], 
                         key=chk_key, 
                         label_visibility="collapsed",
-                        on_change=atualizar_status_feito,
+                        on_change=callback_atualizar_feito,
                         args=(i, chk_key)
                     )
                         
                 with col_texto:
-                    classe_css = "ex-card-done" if st.session_state.get(chk_key, ex["feito"]) else "ex-card"
-                    texto_concluido = " ~?(Feito)~?" if st.session_state.get(chk_key, ex["feito"]) else ""
+                    is_checked = st.session_state.get(chk_key, ex["feito"])
+                    classe_css = "ex-card-done" if is_checked else "ex-card"
+                    texto_concluido = " ~~(Feito)~~" if is_checked else ""
                     st.markdown(
                         f'<div class="{classe_css}"><strong>{ex["nome"]}{texto_concluido}</strong><br>'
                         f'<span style="font-size:0.85rem;color:#888;">{ex["series"]}×{ex["reps"]} séries</span></div>',
@@ -474,7 +475,7 @@ else:
                     )
                     
                 with col_peso_edit:
-                    # O on_change garante que o peso mude na memória sem reiniciar o script inteiro do zero
+                    # Roda em segundo plano sem disparar o script inteiro a cada clique de '+' ou '-'
                     st.number_input(
                         "Carga (kg)", 
                         min_value=0.0, 
@@ -482,7 +483,7 @@ else:
                         value=float(ex["peso"]), 
                         step=0.5, 
                         key=inp_key,
-                        on_change=atualizar_peso_session,
+                        on_change=callback_atualizar_peso,
                         args=(i, inp_key)
                     )
                         
@@ -495,7 +496,7 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             
             with st.form("form_finalizar_treino"):
-                st.markdown("### Finalizar Treino")
+                st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">FINALIZAR TREINO</h3>', unsafe_allow_html=True)
                 duracao = st.number_input("Duração do treino (min)", value=60, min_value=1)
                 notas   = st.text_area("Observações (opcional)", placeholder="Como foi o treino hoje?", height=80)
                 
@@ -565,7 +566,7 @@ else:
                     if st.button("💾 Salvar Plano", type="primary", use_container_width=True):
                         if nome_plano:
                             salvar_plano(username, nome_plano, descricao, st.session_state.plano_exercicios_tmp)
-                            st.success("Plano salvo!")
+                            st.success("Plano saved!")
                             st.session_state.plano_exercicios_tmp = []
                             st.rerun()
                         else:
@@ -641,7 +642,7 @@ else:
                 data_fmt = datetime.strptime(t["data"], "%Y-%m-%d").strftime("%d/%m/%Y")
                 exs      = t.get("exercicios", [])
                 duracao  = t.get("duracao_min", 0) or 0
-                notas    = t.get("notas", "") or ""
+                notas    = t.get("notes", "") or ""  # Mapeado para 'notes' conforme o banco
 
                 with st.expander(data_fmt + "  •  " + str(len(exs)) + " exercícios  •  " + str(duracao) + " min"):
                     for ex in exs:
@@ -753,3 +754,36 @@ else:
                 ]
             ).properties(title="Evolução de Carga — " + ex_sel, height=300).interactive()
             st.altair_chart(chart_peso, use_container_width=True)
+
+    # ── ABA PERFIL ───────────────────────────────────────────────────────────────
+    elif aba == "👤 Perfil":
+        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meu Perfil</h2>', unsafe_allow_html=True)
+        st.markdown(f"**Usuário:** `{username}`")
+        
+        if not st.session_state.editando_perfil:
+            st.write(f"**Nome:** {perfil.get('nome', 'Não informado')}")
+            st.write(f"**Objetivo:** {perfil.get('objetivo', 'Não informado')}")
+            st.write(f"**Frequência:** {perfil.get('dias_por_semana', '3')} dias por semana")
+            st.write(f"**Tempo Disponível:** {perfil.get('tempo_disponivel', '1h')}")
+            if st.button("📝 Editar Perfil", use_container_width=True):
+                st.session_state.editando_perfil = True
+                st.rerun()
+        else:
+            novo_nome = st.text_input("Nome completo", value=perfil.get("nome", ""))
+            novo_obj  = st.selectbox("Objetivo Principal", OBJETIVOS, index=OBJETIVOS.index(perfil.get("objetivo", OBJETIVOS[0])) if perfil.get("objetivo") in OBJETIVOS else 0)
+            novo_dias = st.selectbox("Dias de treino por semana", [3,4,5,6], index=[3,4,5,6].index(perfil.get("dias_por_semana", 4)) if perfil.get("dias_por_semana") in [3,4,5,6] else 1)
+            novo_temp = st.selectbox("Tempo por treino", TEMPOS, index=TEMPOS.index(perfil.get("tempo_disponivel", TEMPOS[1])) if perfil.get("tempo_disponivel") in TEMPOS else 1)
+            
+            c_salvar, c_cancelar = st.columns(2)
+            with c_salvar:
+                if st.button("💾 Salvar Alterações", type="primary", use_container_width=True):
+                    res = atualizar_perfil(username, novo_nome, novo_obj, novo_dias, novo_temp)
+                    if res:
+                        st.session_state.perfil = res
+                        st.session_state.editando_perfil = False
+                        st.success("Perfil atualizado!")
+                        st.rerun()
+            with c_cancelar:
+                if st.button("❌ Cancelar", use_container_width=True):
+                    st.session_state.editando_perfil = False
+                    st.rerun()
