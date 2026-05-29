@@ -139,7 +139,7 @@ def buscar_treinos(username, limit=200):
         return []
 
 # NOVAS FUNÇÕES PARA MEDIDAS CORPORAIS
-def salvar_medidas(username, peso, cintura, braco_dir, braco_esq, bf):
+def salvar_medidas(username, peso, cintura, braco_dir, braco_esq, bf, coxa_dir, coxa_esq, panturrilha_dir, panturrilha_esq, quadril, peito, ombro):
     try:
         r = supabase.table("historico_corporal").insert({
             "username": username,
@@ -148,9 +148,19 @@ def salvar_medidas(username, peso, cintura, braco_dir, braco_esq, bf):
             "cintura": float(cintura) if cintura else None,
             "braço_direito": float(braco_dir) if braco_dir else None,
             "braço_esquerdo": float(braco_esq) if braco_esq else None,
-            "percentual_gordura": float(bf) if bf else None
+            "percentual_gordura": float(bf) if bf else None,
+            "coxa_direita": float(coxa_dir) if coxa_dir else None,
+            "coxa_esquerda": float(coxa_esq) if coxa_esq else None,
+            "panturrilha_direita": float(panturrilha_dir) if panturrilha_dir else None,
+            "panturrilha_esquerda": float(panturrilha_esq) if panturrilha_esq else None,
+            "quadril": float(quadril) if quadril else None,
+            "peito": float(peito) if peito else None,
+            "ombro": float(ombro) if ombro else None
         }).execute()
-        return r.data[0] if r.data else None
+        if r.data:
+            return r.data[0]
+        else:
+            return None
     except Exception as e:
         st.error(f"Erro ao salvar medidas: {e}")
         return None
@@ -167,7 +177,7 @@ def deletar_medida(medida_id):
     try:
         supabase.table("historico_corporal").delete().eq("id", medida_id).execute()
         return True
-    except:
+    except Exception:
         return False
 
 def salvar_plano(username, nome_plano, descricao, exercicios):
