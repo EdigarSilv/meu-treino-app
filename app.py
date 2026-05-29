@@ -170,7 +170,6 @@ def deletar_medida(medida_id):
     except:
         return False
 
-# OUTRAS FUNÇÕES DO SEU APP MANTIDAS...
 def salvar_plano(username, nome_plano, descricao, exercicios):
     try:
         r = supabase.table("planos").insert({
@@ -370,7 +369,6 @@ if st.session_state.tela_atual == "login":
             st.session_state.usuario_logado = usuario
             st.session_state.perfil = user
             
-            # CONFIGURAÇÃO DE RECUPERAÇÃO DO TREINO APÓS TELA APAGAR / FECHAR APP
             if user.get("treino_em_andamento"):
                 try:
                     st.session_state.treino_exercicios = json.loads(user.get("treino_em_andamento"))
@@ -395,7 +393,8 @@ elif st.session_state.tela_atual == "onboarding":
     tempo    = st.selectbox("Tempo por treino", TEMPOS)
     if st.button("Concluir Cadastro →", type="primary", use_container_width=True):
         if nome and username and senha:
-            novo = criar_usuario(username, senha, nome, objective, dias, tempo)
+            # Corrigido o bug de digitação 'objective' -> 'objetivo'
+            novo = criar_usuario(username, senha, nome, objetivo, dias, tempo)
             if novo:
                 st.session_state.usuario_logado = username
                 st.session_state.perfil = novo
@@ -439,28 +438,28 @@ else:
             st.session_state.treino_exercicios = []
             st.rerun()
 
-    # ADICIONADA A NOVA ABA "⚖️ Medidas" AQUI
+    # --- AJUSTE EXCLUSIVO: REDIRECIONAMENTO DE ABA INSTANTÂNEO ---
     abas = ["🏋️ Treino", "📅 Planos", "📋 Histórico", "📊 Stats", "⚖️ Medidas", "👤 Perfil"]
     
-    try:
-        idx_inicial = abas.index(st.session_state.aba_atual)
-    except ValueError:
-        idx_inicial = 0
+    if st.session_state.aba_atual not in abas:
+        st.session_state.aba_atual = "🏋️ Treino"
+        
+    idx_inicial = abas.index(st.session_state.aba_atual)
 
-    def mudou_aba_callback():
-        st.session_state.aba_atual = st.session_state.nav_radio_key
-
+    # Chave dinâmica para forçar a reconstrução imediata ao mudar de aba programaticamente
     aba = st.radio(
         "", 
         abas, 
         horizontal=True, 
         label_visibility="collapsed", 
         index=idx_inicial,
-        key="nav_radio_key",
-        on_change=mudou_aba_callback
+        key=f"nav_radio_{st.session_state.aba_atual}" 
     )
     
-    st.session_state.aba_atual = aba
+    if aba != st.session_state.aba_atual:
+        st.session_state.aba_atual = aba
+        st.rerun()
+        
     st.markdown("---")
 
     # ── ABA TREINO ──────────────────────────────────────────────────────────────
@@ -492,7 +491,6 @@ else:
                 "series": int(series), "reps": int(reps), "peso": float(peso),
                 "feito": False
             })
-            # Salva no banco de dados para evitar perdas
             persistir_rascunho_treino(username, st.session_state.treino_exercicios)
             st.success(f"{exercicio} adicionado!")
             st.rerun()
@@ -597,7 +595,7 @@ else:
                     else:
                         st.error("Erro ao salvar o treino.")
 
-    # ── ABA PLANOS MANTIDA... ───────────────────────────────────────────────────
+    # ── ABA PLANOS ──────────────────────────────────────────────────────────────
     elif st.session_state.aba_atual == "📅 Planos":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meus Planos de Treino</h2>', unsafe_allow_html=True)
 
@@ -698,7 +696,7 @@ else:
                             st.rerun()
                     st.markdown("---")
 
-    # ── ABA HISTÓRICO MANTIDA... ────────────────────────────────────────────────
+    # ── ABA HISTÓRICO ───────────────────────────────────────────────────────────
     elif st.session_state.aba_atual == "📋 Histórico":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Histórico de Treinos</h2>', unsafe_allow_html=True)
         treinos = buscar_treinos(username, limit=100)
@@ -715,7 +713,7 @@ else:
 
             st.markdown(
                 '<div style="color:#888;font-size:0.85rem;margin-bottom:12px;">'
-                + str(len(treinos_filtrados)) + ' treino(s) em ' + labels_meses[mes_idx] + '</div>',
+                + str(len(treinos_filtrados)) + ' treino(s) in ' + labels_meses[mes_idx] + '</div>',
                 unsafe_allow_html=True
             )
 
@@ -750,7 +748,7 @@ else:
                             st.success("Treino deletado!")
                             st.rerun()
 
-    # ── ABA STATS MANTIDA... ────────────────────────────────────────────────────
+    # ── ABA STATS ───────────────────────────────────────────────────────────────
     elif st.session_state.aba_atual == "📊 Stats":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Minhas Estatísticas</h2>', unsafe_allow_html=True)
         
@@ -787,11 +785,10 @@ else:
                 
                 st.altair_chart(chart, use_container_width=True)
 
-    # ── NOVA ABA MEDIDAS CORPORAIS ──────────────────────────────────────────────
+    # ── ABA MEDIDAS CORPORAIS ───────────────────────────────────────────────────
     elif st.session_state.aba_atual == "⚖️ Medidas":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Acompanhamento Corporal</h2>', unsafe_allow_html=True)
         
-        # Formulário para entrada semanal
         with st.expander("➕ Registrar Peso e Medidas da Semana", expanded=False):
             with st.form("form_medidas"):
                 m_peso = st.number_input("Peso Atual (kg)", min_value=10.0, max_value=250.0, step=0.1, value=80.0)
@@ -817,7 +814,6 @@ else:
                         st.success("Medidas atualizadas com sucesso! 📐")
                         st.rerun()
 
-        # Visualização dos dados e gráficos
         historico = buscar_historico_medidas(username)
         if not historico:
             st.info("Nenhum registro corporal feito ainda. Use o botão acima para registrar suas medidas semanais.")
@@ -825,7 +821,6 @@ else:
             df_m = pd.DataFrame(historico)
             df_m["data_registro"] = pd.to_datetime(df_m["data_registro"])
             
-            # Gráfico de evolução do Peso
             st.markdown("### Evolução do Peso Corporal")
             grafico_peso = alt.Chart(df_m).mark_line(point=True, color="#22c55e").encode(
                 x=alt.X("data_registro:T", title="Data"),
@@ -834,7 +829,6 @@ else:
             ).properties(height=250).interactive()
             st.altair_chart(grafico_peso, use_container_width=True)
 
-            # Histórico em tabela simples
             st.markdown("### Histórico de Registros")
             for item in reversed(historico):
                 data_f = datetime.strptime(item["data_registro"], "%Y-%m-%d").strftime("%d/%m/%Y")
@@ -853,7 +847,7 @@ else:
                         deletar_medida(item['id'])
                         st.rerun()
 
-    # ── ABA PERFIL MANTIDA... ───────────────────────────────────────────────────
+    # ── ABA PERFIL ──────────────────────────────────────────────────────────────
     elif st.session_state.aba_atual == "👤 Perfil":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meu Perfil</h2>', unsafe_allow_html=True)
         
@@ -881,7 +875,7 @@ else:
                     if res:
                         st.session_state.perfil = res
                         st.session_state.editando_perfil = False
-                        st.success("Perfil updated!")
+                        st.success("Perfil atualizado!")
                         st.rerun()
             with c_cancelar:
                 if st.button("Cancelar", use_container_width=True):
