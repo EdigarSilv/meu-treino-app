@@ -72,6 +72,10 @@ if "user" in query_params and st.session_state.usuario_logado is None:
         pass
 
 # ====================== FUNÇÕES DB ======================
+def hoje_no_fuso():
+    """Retorna a data de hoje no fuso horário de Fortaleza."""
+    return datetime.now(FUSO).date()
+
 def criar_usuario(username, senha, nome, objetivo, dias, tempo):
     try:
         r = supabase.table("perfis").insert({
@@ -117,9 +121,10 @@ def persistir_rascunho_treino(username, lista_exercicios):
 
 def salvar_treino(username, exercicios, duracao_min, notas=""):
     try:
+        # FIX: usa fuso horário de Fortaleza para determinar a data correta
         r = supabase.table("treinos").insert({
             "username": username,
-            "data": date.today().isoformat(),
+            "data": hoje_no_fuso().isoformat(),
             "exercicios": json.dumps(exercicios, ensure_ascii=False),
             "duracao_min": duracao_min,
             "notas": notas,
@@ -158,7 +163,7 @@ def salvar_medidas(username, peso, cintura, braco_dir, braco_esq, bf, coxa_dir, 
     try:
         r = supabase.table("historico_corporal").insert({
             "username": username,
-            "data_registro": date.today().isoformat(),
+            "data_registro": hoje_no_fuso().isoformat(),  # FIX: fuso horário correto
             "peso": float(peso),
             "cintura": float(cintura) if cintura else None,
             "braço_direito": float(braco_dir) if braco_dir else None,
@@ -279,9 +284,10 @@ def get_stats_gerais(username):
             g = ex.get("grupo", "Outro")
             grupos_count[g] = grupos_count.get(g, 0) + 1
     
+    # FIX: usa fuso horário de Fortaleza para calcular streak corretamente
     datas = sorted({datetime.strptime(t["data"], "%Y-%m-%d").date() for t in treinos}, reverse=True)
     streak = 0
-    ref = date.today()
+    ref = hoje_no_fuso()
     for d in datas:
         diff = (ref - d).days
         if diff <= 1:
@@ -307,7 +313,8 @@ def get_saudacao(hora):
         return "BOA NOITE"
 
 def render_weekly_tracker(treinos):
-    hoje = date.today()
+    # FIX: usa fuso horário de Fortaleza para determinar "hoje" corretamente
+    hoje = hoje_no_fuso()
     inicio_semana = hoje - timedelta(days=hoje.weekday())
     datas_treino = {datetime.strptime(t["data"], "%Y-%m-%d").date() for t in treinos if t.get("data")}
     dias_abrev = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
@@ -498,8 +505,19 @@ else:
         ultimo_peso = get_ultimo_peso(username, exercicio)
         sugestao    = round(ultimo_peso + 2.5, 1) if ultimo_peso > 0 else 0.0
 
-        if f"input_peso_{exercicio.replace(' ', '_')}" not in st.session_state:
-            st.session_state[f"input_peso_{exercicio.replace(' ', '_')}"] = sugestao
+        # FIX: chave auxiliar para controlar o valor do peso sem setar diretamente
+        # o session_state de um widget já renderizado
+        peso_key      = f"input_peso_{exercicio.replace(' ', '_')}"
+        peso_aux_key  = f"peso_aux_{exercicio.replace(' ', '_')}"
+
+        # Inicializa o valor padrão apenas uma vez por exercício
+        if peso_key not in st.session_state:
+            st.session_state[peso_key] = sugestao
+
+        # Se o botão "Usar último peso" foi clicado na rodada anterior,
+        # aplicamos o valor antes de renderizar o widget
+        if peso_aux_key in st.session_state:
+            st.session_state[peso_key] = st.session_state.pop(peso_aux_key)
 
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -507,10 +525,12 @@ else:
         with c2:
             reps = st.number_input("Reps", min_value=1, max_value=50, value=12)
         with c3:
-            peso = st.number_input("Peso (kg)", min_value=0.0, max_value=500.0, step=0.5, key=f"input_peso_{exercicio.replace(' ', '_')}")
+            peso = st.number_input("Peso (kg)", min_value=0.0, max_value=500.0, step=0.5, key=peso_key)
 
         if ultimo_peso > 0 and st.button("🔄 Usar último peso"):
-            st.session_state[f"input_peso_{exercicio.replace(' ', '_')}"] = ultimo_peso
+            # FIX: salva na chave auxiliar e faz rerun; o valor será aplicado
+            # no início do próximo ciclo, antes do widget ser renderizado
+            st.session_state[peso_aux_key] = ultimo_peso
             st.rerun()
 
         if st.button("➕ Adicionar Exercício", use_container_width=True, type="primary"):
@@ -706,7 +726,8 @@ else:
                         if st.button("🗑", key="del_plano_" + str(plano["id"]), use_container_width=True):
                             deletar_plano(plano["id"])
                             st.rerun()
-                            # ── ABA HISTÓRICO ───────────────────────────────────────────────────────────
+
+    # ── ABA HISTÓRICO ───────────────────────────────────────────────────────────
     elif st.session_state.aba_atual == "📋 Histórico":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Histórico de Treinos</h2>', unsafe_allow_html=True)
         treinos = buscar_treinos(username, limit=50)
