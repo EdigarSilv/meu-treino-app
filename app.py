@@ -123,7 +123,7 @@ def salvar_treino(username, exercicios, duracao_min, notas=""):
             "data": date.today().isoformat(),
             "exercicios": json.dumps(exercicios, ensure_ascii=False),
             "duracao_min": duracao_min,
-            "notes": notas,
+            "notas": notas,  # <-- Corrigido aqui de 'notes' para 'notas'
         }).execute()
         if r.data:
             persistir_rascunho_treino(username, [])
