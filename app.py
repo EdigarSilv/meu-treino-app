@@ -526,49 +526,32 @@ else:
             st.success(f"{exercicio} adicionado!")
             st.rerun()
 
-        if st.session_state.treino_exercicios:
+if st.session_state.treino_exercicios:
             st.markdown("---")
             st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">EXERCÍCIOS ADICIONADOS / CHECKLIST</h3>', unsafe_allow_html=True)
             
-            def callback_atualizar_peso(idx, key_nome):
-                if key_nome in st.session_state:
-                    st.session_state.treino_exercicios[idx]["peso"] = float(st.session_state[key_nome])
-                    persistir_rascunho_treino(username, st.session_state.treino_exercicios)
+            # Criamos uma cópia para iterar com segurança
+            lista_atualizada = list(st.session_state.treino_exercicios)
+            houve_mudanca = False
 
-            def callback_atualizar_feito(idx, key_nome):
-                if key_nome in st.session_state:
-                    st.session_state.treino_exercicios[idx]["feito"] = bool(st.session_state[key_nome])
-                    persistir_rascunho_treino(username, st.session_state.treino_exercicios)
-
-            for i, ex in enumerate(st.session_state.treino_exercicios):
-                chk_key = f"chk_estabilizado_{i}_{ex['nome'].replace(' ', '_')}"
-                inp_key = f"peso_estabilizado_{i}_{ex['nome'].replace(' ', '_')}"
-                
-                if chk_key not in st.session_state:
-                    st.session_state[chk_key] = ex.get("feito", False)
-                if inp_key not in st.session_state:
-                    st.session_state[inp_key] = float(ex.get("peso", 0.0))
-
-            for i, ex in enumerate(st.session_state.treino_exercicios):
+            for i, ex in enumerate(lista_atualizada):
                 col_check, col_texto, col_peso_edit, col_del = st.columns([0.8, 5.2, 3, 1])
                 
-                chk_key = f"chk_estabilizado_{i}_{ex['nome'].replace(' ', '_')}"
-                inp_key = f"peso_estabilizado_{i}_{ex['nome'].replace(' ', '_')}"
+                # Chaves limpas para os componentes
+                chk_key = f"render_chk_{i}_{ex['nome'].replace(' ', '_')}"
+                inp_key = f"render_peso_{i}_{ex['nome'].replace(' ', '_')}"
 
                 with col_check:
                     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-                    st.checkbox(
-                        "", 
-                        key=chk_key, 
-                        label_visibility="collapsed",
-                        on_change=callback_atualizar_feito,
-                        args=(i, chk_key)
-                    )
+                    # Checkbox simples sem callback agressivo
+                    feito = st.checkbox("", value=bool(ex.get("feito", False)), key=chk_key, label_visibility="collapsed")
+                    if feito != ex.get("feito", False):
+                        lista_atualizada[i]["feito"] = feito
+                        houve_mudanca = True
                         
                 with col_texto:
-                    is_checked = st.session_state.get(chk_key, ex["feito"])
-                    classe_css = "ex-card-done" if is_checked else "ex-card"
-                    texto_concluido = " ~~(Feito)~~" if is_checked else ""
+                    classe_css = "ex-card-done" if feito else "ex-card"
+                    texto_concluido = " ~~(Feito)~~" if feito else ""
                     st.markdown(
                         f'<div class="{classe_css}"><strong>{ex["nome"]}{texto_concluido}</strong><br>'
                         f'<span style="font-size:0.85rem;color:#888;">{ex["series"]}×{ex["reps"]} séries</span></div>',
@@ -576,24 +559,31 @@ else:
                     )
                     
                 with col_peso_edit:
-                    st.number_input(
+                    # Input de peso direto
+                    novo_peso = st.number_input(
                         "Carga (kg)", 
                         min_value=0.0, 
                         max_value=500.0, 
                         step=0.5, 
-                        key=inp_key,
-                        on_change=callback_atualizar_peso,
-                        args=(i, inp_key)
+                        value=float(ex.get("peso", 0.0)),
+                        key=inp_key
                     )
+                    if novo_peso != ex.get("peso", 0.0):
+                        lista_atualizada[i]["peso"] = novo_peso
+                        houve_mudanca = True
                         
                 with col_del:
                     st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
                     if st.button("🗑", key=f"del_{i}_{ex['nome']}"):
-                        st.session_state.treino_exercicios.pop(i)
-                        st.session_state.pop(chk_key, None)
-                        st.session_state.pop(inp_key, None)
-                        persistir_rascunho_treino(username, st.session_state.treino_exercicios)
+                        lista_atualizada.pop(i)
+                        st.session_state.treino_exercicios = lista_atualizada
+                        persistir_rascunho_treino(username, lista_atualizada)
                         st.rerun()
+
+            # Se o usuário alterou algum peso ou marcou o check, salva silenciosamente no banco
+            if houve_mudanca:
+                st.session_state.treino_exercicios = lista_atualizada
+                persistir_rascunho_treino(username, lista_atualizada)
 
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -615,13 +605,16 @@ else:
                             "peso": ex_salvar["peso"]
                         })
                         
+                    # Aqui já está mapeado para a coluna correta "notas"
                     resposta = salvar_treino(username, dados_para_salvar, duracao, notas)
                     if resposta:
                         st.success("Treino salvo! 💪")
+                        # Limpa as chaves antigas do estado
                         for k in list(st.session_state.keys()):
-                            if "chk_estabilizado_" in k or "peso_estabilizado_" in k:
+                            if "render_chk_" in k or "render_peso_" in k:
                                 st.session_state.pop(k, None)
                         st.session_state.treino_exercicios = []
+                        persistir_rascunho_treino(username, [])
                         st.rerun()
                     else:
                         st.error("Erro ao salvar o treino.")
