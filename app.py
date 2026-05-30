@@ -802,69 +802,215 @@ else:
     # ── ABA MEDIDAS ─────────────────────────────────────────────────────────────
     elif st.session_state.aba_atual == "⚖️ Medidas":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Histórico Corporal</h2>', unsafe_allow_html=True)
-        
+
         with st.expander("📝 Registrar Novas Medidas", expanded=False):
             with st.form("form_medidas"):
                 peso_m = st.number_input("Peso Atual (kg)", min_value=10.0, max_value=300.0, value=75.0, step=0.1)
                 bf_m = st.number_input("Percentual de Gordura / BF (%)", 0.0, 70.0, 0.0, 0.1)
-                
                 c1, c2 = st.columns(2)
                 with c1:
-                    ombro_m = st.number_input("Ombro (cm)", 0.0, 250.0, 0.0, 0.5)
-                    peito_m = st.number_input("Peitoral (cm)", 0.0, 250.0, 0.0, 0.5)
-                    braco_d = st.number_input("Braço Direito (cm)", 0.0, 80.0, 0.0, 0.5)
-                    coxa_d = st.number_input("Coxa Direita (cm)", 0.0, 120.0, 0.0, 0.5)
-                    pant_d = st.number_input("Panturrilha Direita (cm)", 0.0, 80.0, 0.0, 0.5)
+                    ombro_m  = st.number_input("Ombro (cm)", 0.0, 250.0, 0.0, 0.5)
+                    peito_m  = st.number_input("Peitoral (cm)", 0.0, 250.0, 0.0, 0.5)
+                    braco_d  = st.number_input("Braço Direito (cm)", 0.0, 80.0, 0.0, 0.5)
+                    coxa_d   = st.number_input("Coxa Direita (cm)", 0.0, 120.0, 0.0, 0.5)
+                    pant_d   = st.number_input("Panturrilha Direita (cm)", 0.0, 80.0, 0.0, 0.5)
                 with c2:
                     cintura_m = st.number_input("Cintura (cm)", 0.0, 200.0, 0.0, 0.5)
                     quadril_m = st.number_input("Quadril (cm)", 0.0, 200.0, 0.0, 0.5)
-                    braco_e = st.number_input("Braço Esquerdo (cm)", 0.0, 80.0, 0.0, 0.5)
-                    coxa_e = st.number_input("Coxa Esquerda (cm)", 0.0, 120.0, 0.0, 0.5)
-                    pant_e = st.number_input("Panturrilha Esquerda (cm)", 0.0, 80.0, 0.0, 0.5)
-                    
+                    braco_e   = st.number_input("Braço Esquerdo (cm)", 0.0, 80.0, 0.0, 0.5)
+                    coxa_e    = st.number_input("Coxa Esquerda (cm)", 0.0, 120.0, 0.0, 0.5)
+                    pant_e    = st.number_input("Panturrilha Esquerda (cm)", 0.0, 80.0, 0.0, 0.5)
                 if st.form_submit_button("💾 Guardar Avaliação", type="primary", use_container_width=True):
                     if salvar_medidas(username, peso_m, cintura_m, braco_d, braco_e, bf_m, coxa_d, coxa_e, pant_d, pant_e, quadril_m, peito_m, ombro_m):
                         st.success("Avaliação salva com sucesso!")
                         st.rerun()
 
         medidas_hist = buscar_historico_medidas(username)
+
         if not medidas_hist:
             st.info("Nenhuma medida cadastrada até agora.")
         else:
-            for m in medidas_hist:
-                d_m = datetime.strptime(m["data_registro"], "%Y-%m-%d")
-                d_str = f"{d_m.day} de {MESES_BR[d_m.month]} de {d_m.year}"
-                
-                with st.container():
+            # ── campos monitorados (chave DB → label exibido)
+            CAMPOS_MEDIDAS = {
+                "peso":               ("⚖️ Peso", "kg"),
+                "percentual_gordura": ("🔥 BF", "%"),
+                "ombro":              ("🏔️ Ombro", "cm"),
+                "peito":              ("🫁 Peito", "cm"),
+                "cintura":            ("📏 Cintura", "cm"),
+                "quadril":            ("🍑 Quadril", "cm"),
+                "braço_direito":      ("💪 Braço Dir.", "cm"),
+                "braço_esquerdo":     ("💪 Braço Esq.", "cm"),
+                "coxa_direita":       ("🦵 Coxa Dir.", "cm"),
+                "coxa_esquerda":      ("🦵 Coxa Esq.", "cm"),
+                "panturrilha_direita":("🦶 Pant. Dir.", "cm"),
+                "panturrilha_esquerda":("🦶 Pant. Esq.", "cm"),
+            }
+
+            # mais antigo → mais recente
+            medidas_ord = list(reversed(medidas_hist))
+            primeiro    = medidas_ord[0]
+            ultimo      = medidas_ord[-1]
+
+            # ── sub-abas de navegação
+            sub = st.radio("", ["📊 Progresso", "📋 Registros"], horizontal=True,
+                           label_visibility="collapsed", key="sub_medidas")
+            st.markdown("---")
+
+            # ════════════════════════════════════════════════════
+            # SUB-ABA: PROGRESSO
+            # ════════════════════════════════════════════════════
+            if sub == "📊 Progresso":
+
+                # ── gráfico de peso corporal ──────────────────
+                pesos_df = pd.DataFrame([
+                    {"data": datetime.strptime(m["data_registro"], "%Y-%m-%d"), "peso": float(m["peso"])}
+                    for m in medidas_ord if m.get("peso")
+                ])
+                if not pesos_df.empty:
+                    st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">PESO CORPORAL</h3>', unsafe_allow_html=True)
+                    chart_peso = (
+                        alt.Chart(pesos_df)
+                        .mark_line(point=True, color="#22c55e", strokeWidth=2)
+                        .encode(
+                            x=alt.X("data:T", title="Data"),
+                            y=alt.Y("peso:Q", title="Peso (kg)", scale=alt.Scale(zero=False)),
+                            tooltip=[alt.Tooltip("data:T", title="Data"), alt.Tooltip("peso:Q", title="Peso (kg)")]
+                        )
+                        .properties(height=220)
+                    )
+                    st.altair_chart(chart_peso, use_container_width=True)
+
+                # ── seletor para gráfico de medidas ──────────
+                campos_disponiveis = [
+                    (k, v) for k, v in CAMPOS_MEDIDAS.items()
+                    if k != "peso" and any(m.get(k) for m in medidas_ord)
+                ]
+                if campos_disponiveis:
+                    st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">EVOLUÇÃO DE MEDIDAS</h3>', unsafe_allow_html=True)
+                    opcoes_label  = [v[0] for _, v in campos_disponiveis]
+                    opcoes_chaves = [k for k, _ in campos_disponiveis]
+                    sel_label = st.selectbox("Selecione a medida", opcoes_label, key="sel_medida_grafico")
+                    sel_campo = opcoes_chaves[opcoes_label.index(sel_label)]
+                    unidade   = CAMPOS_MEDIDAS[sel_campo][1]
+
+                    df_med = pd.DataFrame([
+                        {"data": datetime.strptime(m["data_registro"], "%Y-%m-%d"), "valor": float(m[sel_campo])}
+                        for m in medidas_ord if m.get(sel_campo)
+                    ])
+                    chart_med = (
+                        alt.Chart(df_med)
+                        .mark_line(point=True, color="#a855f7", strokeWidth=2)
+                        .encode(
+                            x=alt.X("data:T", title="Data"),
+                            y=alt.Y("valor:Q", title=f"{sel_label} ({unidade})", scale=alt.Scale(zero=False)),
+                            tooltip=[alt.Tooltip("data:T", title="Data"), alt.Tooltip("valor:Q", title=f"{sel_label}")]
+                        )
+                        .properties(height=220)
+                    )
+                    st.altair_chart(chart_med, use_container_width=True)
+
+                # ── cards antes vs depois ─────────────────────
+                if len(medidas_ord) >= 2:
+                    st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">ANTES vs AGORA</h3>', unsafe_allow_html=True)
+                    d_ini = datetime.strptime(primeiro["data_registro"], "%Y-%m-%d")
+                    d_fim = datetime.strptime(ultimo["data_registro"],  "%Y-%m-%d")
+                    dias_entre = (d_fim - d_ini).days
+
                     st.markdown(
-                        f'<div class="hist-card">'
-                        f'<div style="display:flex;justify-content:between;margin-bottom:8px;">'
-                        f'<strong style="font-size:1.1rem;color:#22c55e;">⚖️ {m["peso"]} kg</strong>'
-                        f'<span style="color:#666;font-size:0.85rem;margin-left:auto;">{d_str}</span>'
-                        f'</div>',
+                        f'<div style="background:#111118;border:1px solid #1e1e2e;border-radius:12px;'
+                        f'padding:10px 16px;margin-bottom:16px;font-size:0.85rem;color:#888;">'
+                        f'📅 Primeiro registro: <strong style="color:#fff;">'
+                        f'{d_ini.day} de {MESES_BR[d_ini.month]} de {d_ini.year}</strong>'
+                        f'&nbsp;&nbsp;→&nbsp;&nbsp;'
+                        f'Último: <strong style="color:#fff;">'
+                        f'{d_fim.day} de {MESES_BR[d_fim.month]} de {d_fim.year}</strong>'
+                        f'&nbsp;&nbsp;•&nbsp;&nbsp;{dias_entre} dias de acompanhamento</div>',
                         unsafe_allow_html=True
                     )
-                    
-                    c1, c2, c3 = st.columns(3)
-                    with c1:
-                        if m.get("percentual_gordura"): st.write(f"**BF:** {m['percentual_gordura']}%")
-                        if m.get("ombro"): st.write(f"**Ombro:** {m['ombro']}cm")
-                        if m.get("peito"): st.write(f"**Peito:** {m['peito']}cm")
-                        if m.get("cintura"): st.write(f"**Cintura:** {m['cintura']}cm")
-                    with c2:
-                        if m.get("braço_direito"): st.write(f"**Braço Dir:** {m['braço_direito']}cm")
-                        if m.get("braço_esquerdo"): st.write(f"**Braço Esq:** {m['braço_esquerdo']}cm")
-                        if m.get("quadril"): st.write(f"**Quadril:** {m['quadril']}cm")
-                    with c3:
-                        if m.get("coxa_direita"): st.write(f"**Coxa Dir:** {m['coxa_direita']}cm")
-                        if m.get("coxa_esquerda"): st.write(f"**Coxa Esq:** {m['coxa_esquerda']}cm")
-                        if m.get("panturrilha_direita"): st.write(f"**Pant. Dir:** {m['panturrilha_direita']}cm")
-                        if m.get("panturrilha_esquerda"): st.write(f"**Pant. Esq:** {m['panturrilha_esquerda']}cm")
-                        
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    if st.button("Excluir Registro", key=f"del_m_{m['id']}"):
-                        if deletar_medida(m["id"]):
-                            st.rerun()
+
+                    cards_html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">'
+                    algum_card = False
+
+                    for campo, (label, unidade) in CAMPOS_MEDIDAS.items():
+                        v_ini = primeiro.get(campo)
+                        v_fim = ultimo.get(campo)
+                        if not v_ini or not v_fim:
+                            continue
+                        v_ini = float(v_ini)
+                        v_fim = float(v_fim)
+                        diff  = v_fim - v_ini
+                        pct   = (diff / v_ini * 100) if v_ini else 0
+
+                        # lógica de cor: cintura/quadril/BF/peso — diminuir é bom
+                        campos_reduzir = {"cintura", "quadril", "percentual_gordura", "peso"}
+                        if campo in campos_reduzir:
+                            cor_diff = "#22c55e" if diff < 0 else ("#ef4444" if diff > 0 else "#888")
+                        else:
+                            cor_diff = "#22c55e" if diff > 0 else ("#ef4444" if diff < 0 else "#888")
+
+                        sinal = "+" if diff > 0 else ""
+                        algum_card = True
+                        cards_html += (
+                            f'<div style="background:#111118;border:1px solid #1e1e2e;border-radius:14px;padding:14px;">'
+                            f'<div style="font-size:0.75rem;color:#666;margin-bottom:4px;">{label}</div>'
+                            f'<div style="display:flex;justify-content:space-between;align-items:flex-end;">'
+                            f'<div>'
+                            f'<span style="font-size:0.8rem;color:#555;">Antes </span>'
+                            f'<span style="font-size:1rem;color:#aaa;">{v_ini:.1f}{unidade}</span><br>'
+                            f'<span style="font-size:0.8rem;color:#555;">Agora </span>'
+                            f'<span style="font-size:1.15rem;font-weight:700;color:#fff;">{v_fim:.1f}{unidade}</span>'
+                            f'</div>'
+                            f'<div style="text-align:right;">'
+                            f'<span style="font-size:1rem;font-weight:700;color:{cor_diff};">{sinal}{diff:.1f}{unidade}</span><br>'
+                            f'<span style="font-size:0.75rem;color:{cor_diff};">{sinal}{pct:.1f}%</span>'
+                            f'</div>'
+                            f'</div>'
+                            f'</div>'
+                        )
+
+                    cards_html += '</div>'
+                    if algum_card:
+                        st.markdown(cards_html, unsafe_allow_html=True)
+                    else:
+                        st.info("Registre pelo menos 2 avaliações para ver o comparativo.")
+                else:
+                    st.info("Registre pelo menos 2 avaliações para ver o progresso completo.")
+
+            # ════════════════════════════════════════════════════
+            # SUB-ABA: REGISTROS
+            # ════════════════════════════════════════════════════
+            else:
+                for m in medidas_hist:
+                    d_m   = datetime.strptime(m["data_registro"], "%Y-%m-%d")
+                    d_str = f"{d_m.day} de {MESES_BR[d_m.month]} de {d_m.year}"
+                    with st.container():
+                        st.markdown(
+                            f'<div class="hist-card">'
+                            f'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
+                            f'<strong style="font-size:1.1rem;color:#22c55e;">⚖️ {m["peso"]} kg</strong>'
+                            f'<span style="color:#666;font-size:0.85rem;">{d_str}</span>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            if m.get("percentual_gordura"): st.write(f"**BF:** {m['percentual_gordura']}%")
+                            if m.get("ombro"):              st.write(f"**Ombro:** {m['ombro']}cm")
+                            if m.get("peito"):              st.write(f"**Peito:** {m['peito']}cm")
+                            if m.get("cintura"):            st.write(f"**Cintura:** {m['cintura']}cm")
+                        with c2:
+                            if m.get("braço_direito"):  st.write(f"**Braço Dir:** {m['braço_direito']}cm")
+                            if m.get("braço_esquerdo"): st.write(f"**Braço Esq:** {m['braço_esquerdo']}cm")
+                            if m.get("quadril"):        st.write(f"**Quadril:** {m['quadril']}cm")
+                        with c3:
+                            if m.get("coxa_direita"):         st.write(f"**Coxa Dir:** {m['coxa_direita']}cm")
+                            if m.get("coxa_esquerda"):        st.write(f"**Coxa Esq:** {m['coxa_esquerda']}cm")
+                            if m.get("panturrilha_direita"):  st.write(f"**Pant. Dir:** {m['panturrilha_direita']}cm")
+                            if m.get("panturrilha_esquerda"): st.write(f"**Pant. Esq:** {m['panturrilha_esquerda']}cm")
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        if st.button("Excluir Registro", key=f"del_m_{m['id']}"):
+                            if deletar_medida(m["id"]):
+                                st.rerun()
 
     # ── ABA PERFIL ──────────────────────────────────────────────────────────────
     elif st.session_state.aba_atual == "👤 Perfil":
