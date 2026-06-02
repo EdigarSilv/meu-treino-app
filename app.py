@@ -49,8 +49,8 @@ defaults = {
     "plano_exercicios_tmp": [],
     "editando_perfil": False,
     "aba_atual": "🏋️ Treino",
-    "mostrar_form_novo_ex": False,   # controla exibição do form de novo exercício
-    "exercicios_custom": {},          # cache dos exercícios customizados { grupo: [nome, ...] }
+    "mostrar_form_novo_ex": False,
+    "exercicios_custom": {},
 }
 
 for k, v in defaults.items():
@@ -66,6 +66,7 @@ if "user" in query_params and st.session_state.usuario_logado is None:
             user = r.data[0]
             st.session_state.usuario_logado = user_url
             st.session_state.perfil = user
+            st.session_state.exercicios_custom = {}  # FIX 3: limpa cache no auto-login
             st.session_state.tela_atual = "dashboard"
             if user.get("treino_em_andamento"):
                 try:
@@ -371,7 +372,7 @@ def buscar_exercicios_custom(username):
         return {}
 
 def cadastrar_exercicio_custom(username, nome, grupo):
-    """Salva um novo exercício customizado. Retorna True se ok."""
+    """Salva um novo exercício customizado. Retorna (True, 'ok') se sucesso."""
     try:
         # Verifica duplicata
         r = supabase.table("exercicios_custom").select("id").eq("username", username).eq("nome", nome).eq("grupo", grupo).execute()
@@ -408,7 +409,6 @@ def get_exercicios_merged(username):
 
     for grupo, lista in st.session_state.exercicios_custom.items():
         if grupo in merged:
-            # Adiciona apenas os que ainda não estão na lista
             for nome in lista:
                 if nome not in merged[grupo]:
                     merged[grupo].append(nome)
@@ -470,6 +470,7 @@ if st.session_state.tela_atual == "login":
         if user:
             st.session_state.usuario_logado = usuario
             st.session_state.perfil = user
+            st.session_state.exercicios_custom = {}  # FIX 3: limpa cache no login
             st.query_params["user"] = usuario
             if user.get("treino_em_andamento"):
                 try:
@@ -500,6 +501,7 @@ elif st.session_state.tela_atual == "onboarding":
             if novo:
                 st.session_state.usuario_logado = username
                 st.session_state.perfil = novo
+                st.session_state.exercicios_custom = {}
                 st.query_params["user"] = username
                 st.session_state.tela_atual = "dashboard"
                 st.rerun()
@@ -573,18 +575,22 @@ else:
 
         # Exercícios mesclados (base + custom do usuário)
         EXERCICIOS = get_exercicios_merged(username)
-        TODOS_EXERCICIOS_MERGED = sorted({e for lst in EXERCICIOS.values() for e in lst})
 
-        grupo     = st.selectbox("Grupo Muscular", list(EXERCICIOS.keys()))
-        
+        grupo = st.selectbox("Grupo Muscular", list(EXERCICIOS.keys()))
+
         # ── Dropdown de exercício com opção de criar novo ──
         opcoes_exercicio = EXERCICIOS[grupo] + ["➕ Criar novo exercício..."]
         exercicio_sel = st.selectbox("Exercício", opcoes_exercicio)
 
-        # ── FORM DE NOVO EXERCÍCIO (abre quando seleciona a opção especial) ──────
+        # FIX 2: fecha o form quando o usuário escolhe um exercício normal
+        if exercicio_sel != "➕ Criar novo exercício...":
+            st.session_state.mostrar_form_novo_ex = False
+
+        # FIX 1: abre o form quando seleciona a opção especial
         if exercicio_sel == "➕ Criar novo exercício...":
             st.session_state.mostrar_form_novo_ex = True
 
+        # ── FORM DE NOVO EXERCÍCIO ───────────────────────────────────────────────
         if st.session_state.mostrar_form_novo_ex:
             st.markdown('<div class="novo-ex-box">', unsafe_allow_html=True)
             st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;margin-top:0;">Cadastrar Novo Exercício</h3>', unsafe_allow_html=True)
@@ -628,45 +634,43 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True)
 
-            # Enquanto o form está aberto, não renderiza o restante da aba
-            st.stop()
+        # FIX 1: só renderiza o restante da aba se não estiver no modo de criar exercício
+        if not st.session_state.mostrar_form_novo_ex and exercicio_sel != "➕ Criar novo exercício...":
+            exercicio = exercicio_sel
 
-        # A partir daqui, exercicio_sel é um exercício válido
-        exercicio = exercicio_sel
+            ultimo_peso = get_ultimo_peso(username, exercicio)
+            sugestao    = round(ultimo_peso + 2.5, 1) if ultimo_peso > 0 else 0.0
 
-        ultimo_peso = get_ultimo_peso(username, exercicio)
-        sugestao    = round(ultimo_peso + 2.5, 1) if ultimo_peso > 0 else 0.0
+            peso_key     = f"input_peso_{exercicio.replace(' ', '_')}"
+            peso_aux_key = f"peso_aux_{exercicio.replace(' ', '_')}"
 
-        peso_key      = f"input_peso_{exercicio.replace(' ', '_')}"
-        peso_aux_key  = f"peso_aux_{exercicio.replace(' ', '_')}"
+            if peso_key not in st.session_state:
+                st.session_state[peso_key] = sugestao
 
-        if peso_key not in st.session_state:
-            st.session_state[peso_key] = sugestao
+            if peso_aux_key in st.session_state:
+                st.session_state[peso_key] = st.session_state.pop(peso_aux_key)
 
-        if peso_aux_key in st.session_state:
-            st.session_state[peso_key] = st.session_state.pop(peso_aux_key)
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                series = st.number_input("Séries", min_value=1, max_value=10, value=3)
+            with c2:
+                reps = st.number_input("Reps", min_value=1, max_value=50, value=12)
+            with c3:
+                peso = st.number_input("Peso (kg)", min_value=0.0, max_value=500.0, step=0.5, key=peso_key)
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            series = st.number_input("Séries", min_value=1, max_value=10, value=3)
-        with c2:
-            reps = st.number_input("Reps", min_value=1, max_value=50, value=12)
-        with c3:
-            peso = st.number_input("Peso (kg)", min_value=0.0, max_value=500.0, step=0.5, key=peso_key)
+            if ultimo_peso > 0 and st.button("🔄 Usar último peso"):
+                st.session_state[peso_aux_key] = ultimo_peso
+                st.rerun()
 
-        if ultimo_peso > 0 and st.button("🔄 Usar último peso"):
-            st.session_state[peso_aux_key] = ultimo_peso
-            st.rerun()
-
-        if st.button("➕ Adicionar Exercício", use_container_width=True, type="primary"):
-            st.session_state.treino_exercicios.append({
-                "nome": exercicio, "grupo": grupo,
-                "series": int(series), "reps": int(reps), "peso": float(peso),
-                "feito": False
-            })
-            persistir_rascunho_treino(username, st.session_state.treino_exercicios)
-            st.success(f"{exercicio} adicionado!")
-            st.rerun()
+            if st.button("➕ Adicionar Exercício", use_container_width=True, type="primary"):
+                st.session_state.treino_exercicios.append({
+                    "nome": exercicio, "grupo": grupo,
+                    "series": int(series), "reps": int(reps), "peso": float(peso),
+                    "feito": False
+                })
+                persistir_rascunho_treino(username, st.session_state.treino_exercicios)
+                st.success(f"{exercicio} adicionado!")
+                st.rerun()
 
         if st.session_state.treino_exercicios:
             st.markdown("---")
