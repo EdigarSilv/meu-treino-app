@@ -1,5 +1,6 @@
 streamlit
 supabase
+gotrue
 pandas
 altair
 pytz
