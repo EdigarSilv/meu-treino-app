@@ -24,7 +24,7 @@ st.set_page_config(page_title="meu-treino-app", page_icon="🏋️‍♂️", la
 alt.themes.enable("dark")
 
 # ====================== DADOS ======================
-EXERCICIOS = {
+EXERCICIOS_BASE = {
     "🦵 Pernas": ["Agachamento Livre","Leg Press","Cadeira Extensora","Mesa Flexora","Stiff","Avanço","Afundo","Panturrilha na Máquina","Hack Squat"],
     "🫁 Peito": ["Supino Reto","Supino Inclinado","Supino Declinado","Crucifixo","Crossover","Peck Deck","Flexão","Pullover","Crucifixo Máquina (Peck Deck)","Desenvolvimento com Halteres","Elevação Lateral (Halteres ou Polia)"],
     "🔙 Costas": ["Puxada Frontal","Remada Curvada","Remada Unilateral","Levantamento Terra","Serrote","Puxada Fechada","Remada na Máquina","Pull-up"],
@@ -34,7 +34,9 @@ EXERCICIOS = {
     "🎯 Abdômen": ["Abdominal Crunch","Prancha","Abdominal Oblíquo","Elevação de Pernas","Abdominal na Máquina","Russian Twist"],
 }
 
-TODOS_EXERCICIOS = sorted({e for lst in EXERCICIOS.values() for e in lst})
+# Grupos com emoji (mesma ordem, para o cadastro de exercício custom)
+GRUPOS_MUSCULARES = list(EXERCICIOS_BASE.keys())
+
 OBJETIVOS = ["Hipertrofia", "Emagrecimento", "Condicionamento", "Força"]
 TEMPOS = ["45 min", "1h", "1h15", "1h30", "2h"]
 
@@ -47,6 +49,8 @@ defaults = {
     "plano_exercicios_tmp": [],
     "editando_perfil": False,
     "aba_atual": "🏋️ Treino",
+    "mostrar_form_novo_ex": False,   # controla exibição do form de novo exercício
+    "exercicios_custom": {},          # cache dos exercícios customizados { grupo: [nome, ...] }
 }
 
 for k, v in defaults.items():
@@ -73,7 +77,6 @@ if "user" in query_params and st.session_state.usuario_logado is None:
 
 # ====================== FUNÇÕES DB ======================
 def hoje_no_fuso():
-    """Retorna a data de hoje no fuso horário de Fortaleza."""
     return datetime.now(FUSO).date()
 
 def criar_usuario(username, senha, nome, objetivo, dias, tempo):
@@ -121,7 +124,6 @@ def persistir_rascunho_treino(username, lista_exercicios):
 
 def salvar_treino(username, exercicios, duracao_min, notas=""):
     try:
-        # FIX: usa fuso horário de Fortaleza para determinar a data correta
         r = supabase.table("treinos").insert({
             "username": username,
             "data": hoje_no_fuso().isoformat(),
@@ -163,7 +165,7 @@ def salvar_medidas(username, peso, cintura, braco_dir, braco_esq, bf, coxa_dir, 
     try:
         r = supabase.table("historico_corporal").insert({
             "username": username,
-            "data_registro": hoje_no_fuso().isoformat(),  # FIX: fuso horário correto
+            "data_registro": hoje_no_fuso().isoformat(),
             "peso": float(peso),
             "cintura": float(cintura) if cintura else None,
             "braço_direito": float(braco_dir) if braco_dir else None,
@@ -283,8 +285,6 @@ def get_stats_gerais(username):
             total_series += ex.get("series", 0)
             g = ex.get("grupo", "Outro")
             grupos_count[g] = grupos_count.get(g, 0) + 1
-    
-    # FIX: usa fuso horário de Fortaleza para calcular streak corretamente
     datas = sorted({datetime.strptime(t["data"], "%Y-%m-%d").date() for t in treinos}, reverse=True)
     streak = 0
     ref = hoje_no_fuso()
@@ -313,7 +313,6 @@ def get_saudacao(hora):
         return "BOA NOITE"
 
 def render_weekly_tracker(treinos):
-    # FIX: usa fuso horário de Fortaleza para determinar "hoje" corretamente
     hoje = hoje_no_fuso()
     inicio_semana = hoje - timedelta(days=hoje.weekday())
     datas_treino = {datetime.strptime(t["data"], "%Y-%m-%d").date() for t in treinos if t.get("data")}
@@ -354,6 +353,74 @@ def render_weekly_tracker(treinos):
     ])
     st.markdown(html, unsafe_allow_html=True)
 
+# ====================== FUNÇÕES DE EXERCÍCIOS CUSTOM ======================
+
+def buscar_exercicios_custom(username):
+    """Busca exercícios customizados do usuário e retorna dict {grupo: [nomes]}."""
+    try:
+        r = supabase.table("exercicios_custom").select("*").eq("username", username).order("nome").execute()
+        resultado = {}
+        for row in (r.data or []):
+            grupo = row["grupo"]
+            if grupo not in resultado:
+                resultado[grupo] = []
+            resultado[grupo].append(row["nome"])
+        return resultado
+    except Exception as e:
+        st.error(f"Erro ao buscar exercícios custom: {e}")
+        return {}
+
+def cadastrar_exercicio_custom(username, nome, grupo):
+    """Salva um novo exercício customizado. Retorna True se ok."""
+    try:
+        # Verifica duplicata
+        r = supabase.table("exercicios_custom").select("id").eq("username", username).eq("nome", nome).eq("grupo", grupo).execute()
+        if r.data:
+            return False, "Exercício já existe neste grupo."
+        supabase.table("exercicios_custom").insert({
+            "username": username,
+            "nome": nome,
+            "grupo": grupo,
+        }).execute()
+        return True, "ok"
+    except Exception as e:
+        return False, str(e)
+
+def deletar_exercicio_custom(username, nome, grupo):
+    """Remove um exercício customizado."""
+    try:
+        supabase.table("exercicios_custom").delete().eq("username", username).eq("nome", nome).eq("grupo", grupo).execute()
+        return True
+    except:
+        return False
+
+def get_exercicios_merged(username):
+    """
+    Retorna dict mesclado de EXERCICIOS_BASE + custom do usuário,
+    aproveitando cache em session_state.
+    """
+    if not st.session_state.exercicios_custom:
+        st.session_state.exercicios_custom = buscar_exercicios_custom(username)
+
+    merged = {}
+    for grupo, lista in EXERCICIOS_BASE.items():
+        merged[grupo] = list(lista)
+
+    for grupo, lista in st.session_state.exercicios_custom.items():
+        if grupo in merged:
+            # Adiciona apenas os que ainda não estão na lista
+            for nome in lista:
+                if nome not in merged[grupo]:
+                    merged[grupo].append(nome)
+        else:
+            merged[grupo] = list(lista)
+
+    return merged
+
+def invalidar_cache_custom():
+    """Força recarregamento dos exercícios custom na próxima chamada."""
+    st.session_state.exercicios_custom = {}
+
 # ====================== CSS ======================
 st.markdown("""
 <style>
@@ -382,6 +449,11 @@ h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0
     background:#111118; border:1px solid #1e1e2e;
     border-radius:14px; padding:18px; text-align:center;
 }
+.novo-ex-box {
+    background:#111118; border:1px solid #2a1f3a;
+    border-left:4px solid #e53935; border-radius:14px;
+    padding:16px 18px; margin-bottom:16px;
+}
 div[data-testid="stForm"] { border: 1px solid #1e1e2e !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -399,13 +471,11 @@ if st.session_state.tela_atual == "login":
             st.session_state.usuario_logado = usuario
             st.session_state.perfil = user
             st.query_params["user"] = usuario
-            
             if user.get("treino_em_andamento"):
                 try:
                     st.session_state.treino_exercicios = json.loads(user.get("treino_em_andamento"))
                 except:
                     st.session_state.treino_exercicios = []
-            
             st.session_state.tela_atual = "dashboard"
             st.rerun()
         else:
@@ -469,6 +539,7 @@ else:
             st.session_state.usuario_logado = None
             st.session_state.perfil = None
             st.session_state.treino_exercicios = []
+            st.session_state.exercicios_custom = {}
             st.query_params.clear()
             st.rerun()
 
@@ -500,22 +571,78 @@ else:
         treinos_semana = buscar_treinos(username, limit=30)
         render_weekly_tracker(treinos_semana)
 
+        # Exercícios mesclados (base + custom do usuário)
+        EXERCICIOS = get_exercicios_merged(username)
+        TODOS_EXERCICIOS_MERGED = sorted({e for lst in EXERCICIOS.values() for e in lst})
+
         grupo     = st.selectbox("Grupo Muscular", list(EXERCICIOS.keys()))
-        exercicio = st.selectbox("Exercício", EXERCICIOS[grupo])
+        
+        # ── Dropdown de exercício com opção de criar novo ──
+        opcoes_exercicio = EXERCICIOS[grupo] + ["➕ Criar novo exercício..."]
+        exercicio_sel = st.selectbox("Exercício", opcoes_exercicio)
+
+        # ── FORM DE NOVO EXERCÍCIO (abre quando seleciona a opção especial) ──────
+        if exercicio_sel == "➕ Criar novo exercício...":
+            st.session_state.mostrar_form_novo_ex = True
+
+        if st.session_state.mostrar_form_novo_ex:
+            st.markdown('<div class="novo-ex-box">', unsafe_allow_html=True)
+            st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;margin-top:0;">Cadastrar Novo Exercício</h3>', unsafe_allow_html=True)
+
+            with st.form("form_novo_exercicio", clear_on_submit=True):
+                nome_novo_ex = st.text_input(
+                    "Nome do exercício",
+                    placeholder="Ex: Rosca Scott com Haltere",
+                    max_chars=80,
+                )
+                grupo_novo_ex = st.selectbox(
+                    "Grupo Muscular",
+                    GRUPOS_MUSCULARES,
+                    index=GRUPOS_MUSCULARES.index(grupo) if grupo in GRUPOS_MUSCULARES else 0,
+                    key="grupo_novo_ex_select"
+                )
+
+                col_salvar_ex, col_cancelar_ex = st.columns(2)
+                with col_salvar_ex:
+                    salvar_novo = st.form_submit_button("💾 Salvar Exercício", type="primary", use_container_width=True)
+                with col_cancelar_ex:
+                    cancelar_novo = st.form_submit_button("Cancelar", use_container_width=True)
+
+                if salvar_novo:
+                    nome_limpo = nome_novo_ex.strip()
+                    if not nome_limpo:
+                        st.warning("Digite o nome do exercício.")
+                    else:
+                        ok, msg = cadastrar_exercicio_custom(username, nome_limpo, grupo_novo_ex)
+                        if ok:
+                            invalidar_cache_custom()
+                            st.session_state.mostrar_form_novo_ex = False
+                            st.success(f"✅ \"{nome_limpo}\" adicionado em {grupo_novo_ex}!")
+                            st.rerun()
+                        else:
+                            st.error(f"Erro: {msg}")
+
+                if cancelar_novo:
+                    st.session_state.mostrar_form_novo_ex = False
+                    st.rerun()
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # Enquanto o form está aberto, não renderiza o restante da aba
+            st.stop()
+
+        # A partir daqui, exercicio_sel é um exercício válido
+        exercicio = exercicio_sel
+
         ultimo_peso = get_ultimo_peso(username, exercicio)
         sugestao    = round(ultimo_peso + 2.5, 1) if ultimo_peso > 0 else 0.0
 
-        # FIX: chave auxiliar para controlar o valor do peso sem setar diretamente
-        # o session_state de um widget já renderizado
         peso_key      = f"input_peso_{exercicio.replace(' ', '_')}"
         peso_aux_key  = f"peso_aux_{exercicio.replace(' ', '_')}"
 
-        # Inicializa o valor padrão apenas uma vez por exercício
         if peso_key not in st.session_state:
             st.session_state[peso_key] = sugestao
 
-        # Se o botão "Usar último peso" foi clicado na rodada anterior,
-        # aplicamos o valor antes de renderizar o widget
         if peso_aux_key in st.session_state:
             st.session_state[peso_key] = st.session_state.pop(peso_aux_key)
 
@@ -528,8 +655,6 @@ else:
             peso = st.number_input("Peso (kg)", min_value=0.0, max_value=500.0, step=0.5, key=peso_key)
 
         if ultimo_peso > 0 and st.button("🔄 Usar último peso"):
-            # FIX: salva na chave auxiliar e faz rerun; o valor será aplicado
-            # no início do próximo ciclo, antes do widget ser renderizado
             st.session_state[peso_aux_key] = ultimo_peso
             st.rerun()
 
@@ -633,6 +758,8 @@ else:
     elif st.session_state.aba_atual == "📅 Planos":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meus Planos de Treino</h2>', unsafe_allow_html=True)
 
+        EXERCICIOS = get_exercicios_merged(username)
+
         with st.expander("➕ Criar Novo Plano", expanded=False):
             nome_plano  = st.text_input("Nome do plano", placeholder="Ex: Treino A - Peito e Tríceps")
             descricao   = st.text_input("Descrição", placeholder="Ex: Foco em hipertrofia")
@@ -715,7 +842,6 @@ else:
                             for k in list(st.session_state.keys()):
                                 if "render_chk_" in k or "render_peso_" in k:
                                     st.session_state.pop(k, None)
-                                    
                             for e in exs:
                                 item = dict(e)
                                 item["feito"] = False
@@ -748,7 +874,6 @@ else:
                         f'</div>',
                         unsafe_allow_html=True
                     )
-                    
                     if t.get("notas"):
                         st.markdown(f'<div style="color:#aaa;font-size:0.9rem;font-style:italic;margin:6px 0;">💬 {t["notas"]}</div>', unsafe_allow_html=True)
                     
@@ -760,7 +885,6 @@ else:
                             f'</div>',
                             unsafe_allow_html=True
                         )
-                    
                     st.markdown('</div>', unsafe_allow_html=True)
                     if st.button("Deletar Registro", key=f"del_t_{t['id']}", type="secondary"):
                         if deletar_treino(t["id"]):
@@ -771,6 +895,8 @@ else:
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Estatísticas e Cargas</h2>', unsafe_allow_html=True)
         stats = get_stats_gerais(username)
         
+        TODOS_EXERCICIOS_MERGED = sorted({e for lst in get_exercicios_merged(username).values() for e in lst})
+
         if not stats:
             st.info("Dados insuficientes para gerar relatórios.")
         else:
@@ -785,7 +911,7 @@ else:
                 st.markdown(f'<div class="stat-card"><span style="font-size:0.8rem;color:#888;">STREAK</span><br><strong style="font-size:1.8rem;color:#f59e0b;">🔥 {stats["streak"]}</strong></div>', unsafe_allow_html=True)
                 
             st.markdown("### Evolução de Carga")
-            ex_alvo = st.selectbox("Selecione o Exercício para o Gráfico", TODOS_EXERCICIOS)
+            ex_alvo = st.selectbox("Selecione o Exercício para o Gráfico", TODOS_EXERCICIOS_MERGED)
             df_carga = get_evolucao_carga(username, ex_alvo)
             
             if df_carga.empty:
@@ -830,7 +956,6 @@ else:
         if not medidas_hist:
             st.info("Nenhuma medida cadastrada até agora.")
         else:
-            # ── campos monitorados (chave DB → label exibido)
             CAMPOS_MEDIDAS = {
                 "peso":               ("⚖️ Peso", "kg"),
                 "percentual_gordura": ("🔥 BF", "%"),
@@ -846,22 +971,15 @@ else:
                 "panturrilha_esquerda":("🦶 Pant. Esq.", "cm"),
             }
 
-            # mais antigo → mais recente
             medidas_ord = list(reversed(medidas_hist))
             primeiro    = medidas_ord[0]
             ultimo      = medidas_ord[-1]
 
-            # ── sub-abas de navegação
             sub = st.radio("", ["📊 Progresso", "📋 Registros"], horizontal=True,
                            label_visibility="collapsed", key="sub_medidas")
             st.markdown("---")
 
-            # ════════════════════════════════════════════════════
-            # SUB-ABA: PROGRESSO
-            # ════════════════════════════════════════════════════
             if sub == "📊 Progresso":
-
-                # ── gráfico de peso corporal ──────────────────
                 pesos_df = pd.DataFrame([
                     {"data": datetime.strptime(m["data_registro"], "%Y-%m-%d"), "peso": float(m["peso"])}
                     for m in medidas_ord if m.get("peso")
@@ -880,7 +998,6 @@ else:
                     )
                     st.altair_chart(chart_peso, use_container_width=True)
 
-                # ── seletor para gráfico de medidas ──────────
                 campos_disponiveis = [
                     (k, v) for k, v in CAMPOS_MEDIDAS.items()
                     if k != "peso" and any(m.get(k) for m in medidas_ord)
@@ -909,7 +1026,6 @@ else:
                     )
                     st.altair_chart(chart_med, use_container_width=True)
 
-                # ── cards antes vs depois ─────────────────────
                 if len(medidas_ord) >= 2:
                     st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">ANTES vs AGORA</h3>', unsafe_allow_html=True)
                     d_ini = datetime.strptime(primeiro["data_registro"], "%Y-%m-%d")
@@ -941,7 +1057,6 @@ else:
                         diff  = v_fim - v_ini
                         pct   = (diff / v_ini * 100) if v_ini else 0
 
-                        # lógica de cor: cintura/quadril/BF/peso — diminuir é bom
                         campos_reduzir = {"cintura", "quadril", "percentual_gordura", "peso"}
                         if campo in campos_reduzir:
                             cor_diff = "#22c55e" if diff < 0 else ("#ef4444" if diff > 0 else "#888")
@@ -976,9 +1091,6 @@ else:
                 else:
                     st.info("Registre pelo menos 2 avaliações para ver o progresso completo.")
 
-            # ════════════════════════════════════════════════════
-            # SUB-ABA: REGISTROS
-            # ════════════════════════════════════════════════════
             else:
                 for m in medidas_hist:
                     d_m   = datetime.strptime(m["data_registro"], "%Y-%m-%d")
@@ -1026,6 +1138,31 @@ else:
             if st.button("📝 Editar Dados", use_container_width=True):
                 st.session_state.editando_perfil = True
                 st.rerun()
+
+            # ── Gerenciar exercícios custom ──────────────────────────────────
+            st.markdown("---")
+            st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">Meus Exercícios Personalizados</h3>', unsafe_allow_html=True)
+
+            custom = buscar_exercicios_custom(username)
+            if not custom:
+                st.info("Você ainda não criou nenhum exercício personalizado.")
+            else:
+                for grupo_c, nomes in custom.items():
+                    st.markdown(f"**{grupo_c}**")
+                    for nome_c in nomes:
+                        col_nome, col_del = st.columns([8, 1])
+                        with col_nome:
+                            st.markdown(
+                                f'<div style="background:#111118;border-left:3px solid #e53935;'
+                                f'border-radius:8px;padding:8px 12px;margin-bottom:4px;font-size:0.9rem;">'
+                                f'{nome_c}</div>',
+                                unsafe_allow_html=True
+                            )
+                        with col_del:
+                            if st.button("🗑", key=f"del_custom_{grupo_c}_{nome_c}"):
+                                if deletar_exercicio_custom(username, nome_c, grupo_c):
+                                    invalidar_cache_custom()
+                                    st.rerun()
         else:
             nome_e = st.text_input("Nome", value=perfil.get("nome", ""))
             obj_e = st.selectbox("Objetivo", OBJETIVOS, index=OBJETIVOS.index(perfil.get("objetivo")) if perfil.get("objetivo") in OBJETIVOS else 0)
