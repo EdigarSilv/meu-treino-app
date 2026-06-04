@@ -34,7 +34,6 @@ EXERCICIOS_BASE = {
     "🎯 Abdômen": ["Abdominal Crunch","Prancha","Abdominal Oblíquo","Elevação de Pernas","Abdominal na Máquina","Russian Twist"],
 }
 
-# Grupos com emoji (mesma ordem, para o cadastro de exercício custom)
 GRUPOS_MUSCULARES = list(EXERCICIOS_BASE.keys())
 
 OBJETIVOS = ["Hipertrofia", "Emagrecimento", "Condicionamento", "Força"]
@@ -66,7 +65,7 @@ if "user" in query_params and st.session_state.usuario_logado is None:
             user = r.data[0]
             st.session_state.usuario_logado = user_url
             st.session_state.perfil = user
-            st.session_state.exercicios_custom = {}  # FIX 3: limpa cache no auto-login
+            st.session_state.exercicios_custom = {}
             st.session_state.tela_atual = "dashboard"
             if user.get("treino_em_andamento"):
                 try:
@@ -357,7 +356,6 @@ def render_weekly_tracker(treinos):
 # ====================== FUNÇÕES DE EXERCÍCIOS CUSTOM ======================
 
 def buscar_exercicios_custom(username):
-    """Busca exercícios customizados do usuário e retorna dict {grupo: [nomes]}."""
     try:
         r = supabase.table("exercicios_custom").select("*").eq("username", username).order("nome").execute()
         resultado = {}
@@ -372,9 +370,7 @@ def buscar_exercicios_custom(username):
         return {}
 
 def cadastrar_exercicio_custom(username, nome, grupo):
-    """Salva um novo exercício customizado. Retorna (True, 'ok') se sucesso."""
     try:
-        # Verifica duplicata
         r = supabase.table("exercicios_custom").select("id").eq("username", username).eq("nome", nome).eq("grupo", grupo).execute()
         if r.data:
             return False, "Exercício já existe neste grupo."
@@ -388,7 +384,6 @@ def cadastrar_exercicio_custom(username, nome, grupo):
         return False, str(e)
 
 def deletar_exercicio_custom(username, nome, grupo):
-    """Remove um exercício customizado."""
     try:
         supabase.table("exercicios_custom").delete().eq("username", username).eq("nome", nome).eq("grupo", grupo).execute()
         return True
@@ -396,10 +391,6 @@ def deletar_exercicio_custom(username, nome, grupo):
         return False
 
 def get_exercicios_merged(username):
-    """
-    Retorna dict mesclado de EXERCICIOS_BASE + custom do usuário,
-    aproveitando cache em session_state.
-    """
     if not st.session_state.exercicios_custom:
         st.session_state.exercicios_custom = buscar_exercicios_custom(username)
 
@@ -418,7 +409,6 @@ def get_exercicios_merged(username):
     return merged
 
 def invalidar_cache_custom():
-    """Força recarregamento dos exercícios custom na próxima chamada."""
     st.session_state.exercicios_custom = {}
 
 # ====================== CSS ======================
@@ -470,7 +460,7 @@ if st.session_state.tela_atual == "login":
         if user:
             st.session_state.usuario_logado = usuario
             st.session_state.perfil = user
-            st.session_state.exercicios_custom = {}  # FIX 3: limpa cache no login
+            st.session_state.exercicios_custom = {}
             st.query_params["user"] = usuario
             if user.get("treino_em_andamento"):
                 try:
@@ -573,24 +563,19 @@ else:
         treinos_semana = buscar_treinos(username, limit=30)
         render_weekly_tracker(treinos_semana)
 
-        # Exercícios mesclados (base + custom do usuário)
         EXERCICIOS = get_exercicios_merged(username)
 
         grupo = st.selectbox("Grupo Muscular", list(EXERCICIOS.keys()))
 
-        # ── Dropdown de exercício com opção de criar novo ──
         opcoes_exercicio = EXERCICIOS[grupo] + ["➕ Criar novo exercício..."]
         exercicio_sel = st.selectbox("Exercício", opcoes_exercicio)
 
-        # FIX 2: fecha o form quando o usuário escolhe um exercício normal
         if exercicio_sel != "➕ Criar novo exercício...":
             st.session_state.mostrar_form_novo_ex = False
 
-        # FIX 1: abre o form quando seleciona a opção especial
         if exercicio_sel == "➕ Criar novo exercício...":
             st.session_state.mostrar_form_novo_ex = True
 
-        # ── FORM DE NOVO EXERCÍCIO ───────────────────────────────────────────────
         if st.session_state.mostrar_form_novo_ex:
             st.markdown('<div class="novo-ex-box">', unsafe_allow_html=True)
             st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;margin-top:0;">Cadastrar Novo Exercício</h3>', unsafe_allow_html=True)
@@ -634,7 +619,6 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # FIX 1: só renderiza o restante da aba se não estiver no modo de criar exercício
         if not st.session_state.mostrar_form_novo_ex and exercicio_sel != "➕ Criar novo exercício...":
             exercicio = exercicio_sel
 
@@ -890,9 +874,59 @@ else:
                             unsafe_allow_html=True
                         )
                     st.markdown('</div>', unsafe_allow_html=True)
-                    if st.button("Deletar Registro", key=f"del_t_{t['id']}", type="secondary"):
-                        if deletar_treino(t["id"]):
-                            st.rerun()
+
+                    # ── BOTÕES DO CARD ──────────────────────────────────────────
+                    col_salvar_plano, col_deletar = st.columns([3, 1])
+
+                    with col_salvar_plano:
+                        chave_toggle = f"mostrar_salvar_plano_{t['id']}"
+
+                        if chave_toggle not in st.session_state:
+                            st.session_state[chave_toggle] = False
+
+                        if not st.session_state[chave_toggle]:
+                            if st.button("📋 Salvar como Plano", key=f"btn_plano_{t['id']}", use_container_width=True):
+                                st.session_state[chave_toggle] = True
+                                st.rerun()
+                        else:
+                            with st.form(f"form_plano_{t['id']}"):
+                                nome_plano_hist = st.text_input(
+                                    "Nome do plano",
+                                    value=f"Treino {dt_str}",
+                                    placeholder="Ex: Treino de Pernas",
+                                )
+                                desc_plano_hist = st.text_input(
+                                    "Descrição (opcional)",
+                                    placeholder="Ex: Foco em volume",
+                                )
+                                col_conf, col_canc = st.columns(2)
+                                with col_conf:
+                                    confirmar = st.form_submit_button("💾 Confirmar", type="primary", use_container_width=True)
+                                with col_canc:
+                                    cancelar = st.form_submit_button("Cancelar", use_container_width=True)
+
+                                if confirmar:
+                                    if nome_plano_hist.strip():
+                                        exercicios_plano = [
+                                            {k: ex[k] for k in ("nome", "grupo", "series", "reps", "peso") if k in ex}
+                                            for ex in exs
+                                        ]
+                                        resultado = salvar_plano(username, nome_plano_hist.strip(), desc_plano_hist.strip(), exercicios_plano)
+                                        if resultado:
+                                            st.success(f'Plano "{nome_plano_hist}" salvo! Veja na aba 📅 Planos.')
+                                            st.session_state[chave_toggle] = False
+                                            st.rerun()
+                                    else:
+                                        st.warning("Digite um nome para o plano.")
+
+                                if cancelar:
+                                    st.session_state[chave_toggle] = False
+                                    st.rerun()
+
+                    with col_deletar:
+                        if st.button("Deletar", key=f"del_t_{t['id']}", use_container_width=True, type="secondary"):
+                            if deletar_treino(t["id"]):
+                                st.rerun()
 
     # ── ABA STATS ───────────────────────────────────────────────────────────────
     elif st.session_state.aba_atual == "📊 Stats":
@@ -1143,7 +1177,6 @@ else:
                 st.session_state.editando_perfil = True
                 st.rerun()
 
-            # ── Gerenciar exercícios custom ──────────────────────────────────
             st.markdown("---")
             st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">Meus Exercícios Personalizados</h3>', unsafe_allow_html=True)
 
