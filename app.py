@@ -363,10 +363,20 @@ def render_weekly_tracker(treinos):
             '</div>',
         ])
         dias_html += card
+    legenda = (
+        '<div class="week-legend">'
+        '<span class="week-legend-item"><span class="dot" style="background:#22c55e"></span>Treinou</span>'
+        '<span class="week-legend-item"><span class="dot" style="background:#f59e0b"></span>Hoje</span>'
+        '<span class="week-legend-item"><span class="dot" style="background:#ef4444"></span>Perdeu</span>'
+        '<span class="week-legend-item"><span class="dot" style="background:#2a2a3a;border:1px solid #333"></span>Futuro</span>'
+        '</div>'
+    )
     html = "".join([
-        '<div style="margin:20px 0 24px 0;">',
-        '<div style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">SEMANA ATUAL</div>',
-        '<div style="display:flex;gap:8px;">', dias_html, '</div></div>',
+        '<div style="margin:16px 0 20px 0;">',
+        '<div style="font-size:0.7rem;color:#555;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">SEMANA ATUAL</div>',
+        '<div style="display:flex;gap:6px;">', dias_html, '</div>',
+        legenda,
+        '</div>',
     ])
     st.markdown(html, unsafe_allow_html=True)
 
@@ -442,81 +452,239 @@ def invalidar_cache_custom():
 # ====================== CSS INJETADO ======================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght=300;400;600;700&display=swap');
-html, body, [class*="css"] { font-family: 'Nunito', sans-serif; background-color: #0a0a0f; }
-h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0.04em; }
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
 
-.ex-card {
-    background:#111118; border-left:4px solid #FFA500;
-    border-radius:12px; padding:12px 16px; margin-bottom:10px;
+/* ── BASE ── */
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+    background-color: #080810;
+    color: #e2e2f0;
 }
-.ex-card-done {
-    background:#0b130e; border-left:4px solid #22c55e;
-    border-radius:12px; padding:12px 16px; margin-bottom:10px;
-    opacity: 0.6;
-}
-.hist-card {
-    background:#111118; border:1px solid #1e1e2e;
-    border-radius:14px; padding:16px 18px; margin-bottom:12px;
-}
-.plano-card {
-    background:#111118; border:1px solid #2a1f3a;
-    border-left:4px solid #a855f7; border-radius:14px;
-    padding:16px 18px; margin-bottom:12px;
-}
-.stat-card {
-    background:#111118; border:1px solid #1e1e2e;
-    border-radius:14px; padding:18px; text-align:center;
-}
-.novo-ex-box {
-    background:#111118; border:1px solid #e53935;
-    border-radius:14px; padding:20px; margin: 15px 0;
-}
-div[data-testid="stForm"] { border: 1px solid #1e1e2e !important; }
+h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0.05em; }
 
-div[data-testid="stRadio"] div[role="radiogroup"] label [data-testid="stWidgetLabel"] {
-    display: none !important;
+/* ── PADDING MOBILE ── */
+.block-container {
+    padding: 1rem 1rem 4rem 1rem !important;
+    max-width: 640px !important;
 }
+
+/* ── HEADER CARD ── */
+.header-card {
+    background: linear-gradient(135deg, #12121e 0%, #1a1030 100%);
+    border: 1px solid #2a1f45;
+    border-radius: 20px;
+    padding: 18px 20px 16px 20px;
+    margin-bottom: 4px;
+    position: relative;
+}
+.header-meta {
+    font-size: 0.72rem;
+    color: #6b6b8a;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.header-greeting {
+    font-family: 'Bebas Neue', sans-serif !important;
+    font-size: 2rem;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    background: linear-gradient(90deg, #e2e2f0, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+}
+.header-objetivo {
+    font-size: 0.75rem;
+    color: #a855f7;
+    margin-top: 6px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+}
+.sair-btn-wrap {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+}
+
+/* ── NAV TABS ── */
+div[data-testid="stRadio"] > label { display: none !important; }
 div[data-testid="stRadio"] > div[role="radiogroup"] {
-    display: flex;
-    justify-content: space-between;
-    gap: 6px;
-    width: 100%;
+    display: flex !important;
+    gap: 6px !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    padding-bottom: 4px !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
 }
+div[data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar { display: none !important; }
 div[data-testid="stRadio"] div[role="radiogroup"] > label {
-    background: #111118 !important;
-    border: 1px solid #1e1e2e !important;
-    padding: 10px 14px !important;
-    border-radius: 20px !important;
-    flex: 1;
-    text-align: center;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    transition: all 0.25s ease;
+    background: #111120 !important;
+    border: 1px solid #1e1e32 !important;
+    padding: 8px 12px !important;
+    border-radius: 12px !important;
+    flex: 0 0 auto !important;
+    min-width: 64px !important;
+    text-align: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    font-size: 0.72rem !important;
+    line-height: 1.4 !important;
+    white-space: nowrap !important;
 }
 div[data-testid="stRadio"] div[role="radiogroup"] label[data-checked="true"] {
-    background: linear-gradient(135deg, #a855f7, #6366f1) !important;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5) !important;
     border-color: transparent !important;
     color: white !important;
-    box-shadow: 0 0 12px rgba(168, 85, 247, 0.45);
+    box-shadow: 0 0 14px rgba(124, 58, 237, 0.5) !important;
 }
-div[data-testid="stRadio"] div[role="radiogroup"] label div[class*="StyledRadioCircle"],
+/* Esconde bolinha nativa de rádio — todas as variações */
+div[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child,
 div[data-testid="stRadio"] div[role="radiogroup"] label input[type="radio"],
-div[data-testid="stRadio"] div[role="radiogroup"] label div[class*="StyledControlIndicator"] {
+div[data-testid="stRadio"] div[role="radiogroup"] label svg {
     display: none !important;
-    width: 0px !important;
-    height: 0px !important;
-    margin: 0px !important;
-    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
 }
-div[data-testid="stCheckbox"] label span div {
-    border-color: #22c55e !important;
+
+/* ── CARDS GENÉRICOS ── */
+.ex-card {
+    background: #111120;
+    border-left: 3px solid #f59e0b;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
 }
+.ex-card-done {
+    background: #0c1410;
+    border-left: 3px solid #22c55e;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    opacity: 0.55;
+}
+.hist-card {
+    background: #111120;
+    border: 1px solid #1e1e32;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 10px;
+}
+.plano-card {
+    background: #111120;
+    border: 1px solid #2a1f45;
+    border-left: 3px solid #a855f7;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 10px;
+}
+.stat-card {
+    background: #111120;
+    border: 1px solid #1e1e32;
+    border-radius: 16px;
+    padding: 14px 10px;
+    text-align: center;
+}
+.novo-ex-box {
+    background: #111120;
+    border: 1px solid #3f2060;
+    border-radius: 14px;
+    padding: 16px;
+    margin: 12px 0;
+}
+
+/* ── BOTÃO PRIMÁRIO ROXO (sobrepõe vermelho padrão Streamlit) ── */
+div[data-testid="stButton"] > button[kind="primary"],
+button[kind="primary"] {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5) !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    letter-spacing: 0.03em !important;
+    padding: 10px 20px !important;
+    transition: opacity 0.2s !important;
+    color: white !important;
+}
+div[data-testid="stButton"] > button[kind="primary"]:hover {
+    opacity: 0.88 !important;
+}
+
+/* ── BOTÃO SECUNDÁRIO ── */
+div[data-testid="stButton"] > button[kind="secondary"] {
+    background: #1a1a2e !important;
+    border: 1px solid #2a2a45 !important;
+    border-radius: 12px !important;
+    color: #a0a0c0 !important;
+    font-size: 0.85rem !important;
+}
+
+/* ── INPUTS ── */
+div[data-testid="stNumberInput"] input,
+div[data-testid="stTextInput"] input,
+div[data-testid="stTextArea"] textarea {
+    background: #13131f !important;
+    border: 1px solid #2a2a45 !important;
+    border-radius: 10px !important;
+    color: #e2e2f0 !important;
+    font-size: 0.95rem !important;
+}
+div[data-testid="stSelectbox"] > div > div {
+    background: #13131f !important;
+    border: 1px solid #2a2a45 !important;
+    border-radius: 10px !important;
+    color: #e2e2f0 !important;
+}
+
+/* ── FORM ── */
+div[data-testid="stForm"] {
+    border: 1px solid #1e1e32 !important;
+    border-radius: 16px !important;
+    padding: 16px !important;
+    background: #0e0e1a !important;
+}
+
+/* ── CHECKBOX VERDE ── */
+div[data-testid="stCheckbox"] label span div { border-color: #22c55e !important; }
 div[data-testid="stCheckbox"] input[type="checkbox"]:checked + div {
     background-color: #22c55e !important;
     border-color: #22c55e !important;
+}
+
+/* ── DIVIDER ── */
+hr { border-color: #1e1e32 !important; margin: 16px 0 !important; }
+
+/* ── EXPANDER ── */
+div[data-testid="stExpander"] {
+    background: #0e0e1a !important;
+    border: 1px solid #1e1e32 !important;
+    border-radius: 14px !important;
+}
+
+/* ── LEGENDA SEMANA ── */
+.week-legend {
+    display: flex;
+    gap: 14px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+.week-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    color: #666;
+}
+.dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -586,49 +754,49 @@ else:
     mes_atual = MESES_BR[agora_no_fuso.month]
     
     texto_header = f"{hora_atual}:{minuto_atual} • {dia_atual} de {mes_atual}"
+    objetivo_perfil = perfil.get("objetivo", "")
+    dias_perfil     = perfil.get("dias_por_semana", "")
 
-    col_titulo, col_sair = st.columns([8, 1])
-    with col_titulo:
-        st.markdown(
-            '<div style="background:linear-gradient(135deg,#111118,#1a1428);border:1px solid #2a1f3a;'
-            'border-radius:18px;padding:20px 24px;">'
-            '<div style="color:#888;font-size:0.8rem;">'
-            + texto_header +
-            '</div><h2 style="margin:8px 0 0 0;">'
-            + get_saudacao(hora_atual) + ', ' + primeiro_nome.upper() + '!</h2></div>',
-            unsafe_allow_html=True
-        )
-    with col_sair:
-        st.markdown("<div style='margin-top: 24px;'></div>", unsafe_allow_html=True)
-        if st.button("Sair"):
-            st.session_state.tela_atual = "login"
-            st.session_state.usuario_logado = None
-            st.session_state.perfil = None
-            st.session_state.treino_exercicios = []
-            st.session_state.exercicios_custom = {}
-            st.query_params.clear()
-            st.rerun()
+    # Header compacto — botão Sair abaixo, não em coluna (evita quebra no mobile)
+    st.markdown(
+        f'<div class="header-card">'
+        f'<div class="header-meta">{texto_header}</div>'
+        f'<div class="header-greeting">{get_saudacao(hora_atual)}, {primeiro_nome.upper()}!</div>'
+        + (f'<div class="header-objetivo">🎯 {objetivo_perfil} · {dias_perfil}×/semana</div>' if objetivo_perfil else '')
+        + '</div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("Sair", key="btn_sair_header"):
+        st.session_state.tela_atual = "login"
+        st.session_state.usuario_logado = None
+        st.session_state.perfil = None
+        st.session_state.treino_exercicios = []
+        st.session_state.exercicios_custom = {}
+        st.query_params.clear()
+        st.rerun()
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     abas = ["🏋️ Treino", "📋 Planos", "📜 Histórico", "📊 Stats", "📐 Medidas", "👤 Perfil"]
-    
+
     if st.session_state.aba_atual not in abas:
         st.session_state.aba_atual = "🏋️ Treino"
-        
+
     idx_inicial = abas.index(st.session_state.aba_atual)
 
     aba = st.radio(
-        "", 
-        abas, 
-        horizontal=True, 
-        label_visibility="collapsed", 
+        "",
+        abas,
+        horizontal=True,
+        label_visibility="collapsed",
         index=idx_inicial,
-        key="nav_radio"
+        key="nav_radio",
     )
-    
+
     if aba != st.session_state.aba_atual:
         st.session_state.aba_atual = aba
         st.rerun()
-        
+
     st.markdown("---")
 
     # ── ABA TREINO ──────────────────────────────────────────────────────────────
@@ -704,7 +872,7 @@ else:
             with c3:
                 peso = st.number_input("Peso (kg)", min_value=0.0, max_value=500.0, step=0.5, key=peso_key)
 
-            if ultimo_peso > 0 and st.button("🔄 Usar último peso"):
+            if ultimo_peso > 0 and st.button(f"↩ Usar último peso ({ultimo_peso} kg)", use_container_width=True):
                 st.session_state[peso_aux_key] = ultimo_peso
                 st.rerun()
 
