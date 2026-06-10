@@ -49,7 +49,7 @@ defaults = {
     "aba_atual": "🏋️ Treino",
     "mostrar_form_novo_ex": False,
     "exercicios_custom": {},
-    "editando_ex_id": None,  # Controla qual exercício customizado está sendo renomeado
+    "editando_ex_id": None,
 }
 
 for k, v in defaults.items():
@@ -422,10 +422,10 @@ def get_exercicios_merged(username):
 def invalidar_cache_custom():
     st.session_state.exercicios_custom = {}
 
-# ====================== CSS INJETADO (STYLING ATUALIZADO) ======================
+# ====================== CSS INJETADO (FIXED SELECTORS) ======================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght=300;400;600;700&display=swap');
 html, body, [class*="css"] { font-family: 'Nunito', sans-serif; background-color: #0a0a0f; }
 h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0.04em; }
 
@@ -457,8 +457,8 @@ h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0
 }
 div[data-testid="stForm"] { border: 1px solid #1e1e2e !important; }
 
-/* === NOVO SELETOR COMPATÍVEL STREAMLIT NAV (st.radio horizontal) === */
-div[data-testid="stHorizontalBlock"] div[data-testid="stWidgetLabel"] {
+/* === REMOVE DE DEFINITIVA AS BOLINHAS DE CHECK/RADIO NATIVAS DO STREAMLIT === */
+div[data-testid="stRadio"] div[role="radiogroup"] label [data-testid="stWidgetLabel"] {
     display: none !important;
 }
 div[data-testid="stRadio"] > div[role="radiogroup"] {
@@ -470,7 +470,7 @@ div[data-testid="stRadio"] > div[role="radiogroup"] {
 div[data-testid="stRadio"] div[role="radiogroup"] > label {
     background: #111118 !important;
     border: 1px solid #1e1e2e !important;
-    padding: 8px 12px !important;
+    padding: 10px 14px !important;
     border-radius: 20px !important;
     flex: 1;
     text-align: center;
@@ -480,21 +480,23 @@ div[data-testid="stRadio"] div[role="radiogroup"] > label {
     cursor: pointer;
     transition: all 0.25s ease;
 }
-/* Alinhamento do conteúdo selecionado */
+/* Alinhamento do container ativo */
 div[data-testid="stRadio"] div[role="radiogroup"] label[data-checked="true"] {
     background: linear-gradient(135deg, #a855f7, #6366f1) !important;
     border-color: transparent !important;
     color: white !important;
-    box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.45);
 }
-/* Remove de forma definitiva os radio-buttons circulares nativos */
-div[data-testid="stRadio"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"]::before,
+
+/* Ocultação radical das estruturas internas circulares do rádio button */
+div[data-testid="stRadio"] div[role="radiogroup"] label div[class*="StyledRadioCircle"],
 div[data-testid="stRadio"] div[role="radiogroup"] label input[type="radio"],
-div[data-testid="stRadio"] div[role="radiogroup"] label div[class*="StyledRadio"] {
+div[data-testid="stRadio"] div[role="radiogroup"] label div[class*="StyledControlIndicator"] {
     display: none !important;
     width: 0px !important;
     height: 0px !important;
     margin: 0px !important;
+    opacity: 0 !important;
 }
 
 /* === CHECKBOX TOTALMENTE VERDE QUANDO MARCADO === */
@@ -696,7 +698,7 @@ else:
 
             if st.button("➕ Adicionar Exercício", use_container_width=True, type="primary"):
                 st.session_state.treino_exercicios.append({
-                    "nome": exercicio, "grupo": grupo,
+                    "nome": exercicio, "grupo": group,
                     "series": int(series), "reps": int(reps), "peso": float(peso),
                     "feito": False
                 })
@@ -1033,7 +1035,6 @@ else:
     elif st.session_state.aba_atual == "👤 Perfil":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Configurações do Meu Perfil</h2>', unsafe_allow_html=True)
         
-        # MELHORIA: Envelopado dentro de um expander para não poluir a tela caso cresça muito
         with st.expander("🛠️ Ver / Gerenciar Exercícios Customizados", expanded=False):
             st.markdown("### Meus Exercícios Customizados")
             EXERCICIOS_RAW = buscar_exercicios_custom_raw(username)
@@ -1041,7 +1042,6 @@ else:
             if not EXERCICIOS_RAW:
                 st.info("Você ainda não criou nenhum exercício personalizado.")
             else:
-                # Agrupando localmente para exibição estruturada
                 grupos_vistos = {}
                 for row in EXERCICIOS_RAW:
                     g = row["grupo"]
@@ -1050,14 +1050,14 @@ else:
                     grupos_vistos[g].append(row)
                     
                 for grupo_c, rows_c in grupos_vistos.items():
-                    st.markdown(f"**{grupo_c}**")
+                    st.markdown(f"🔹 **{grupo_c}**")
                     for ex_row in rows_c:
                         id_c = ex_row["id"]
                         nome_c = ex_row["nome"]
                         
+                        # Colunas otimizadas para acomodar o texto longo e os botões pequenos sem quebrar linha
                         col_ex_nome, col_btn_edit, col_btn_del = st.columns([6, 2, 2])
                         
-                        # Verifica se este exercício específico está em modo de edição
                         if st.session_state.editando_ex_id == id_c:
                             with col_ex_nome:
                                 novo_nome_input = st.text_input("Novo nome", value=nome_c, key=f"edit_inp_{id_c}", label_visibility="collapsed")
@@ -1076,15 +1076,16 @@ else:
                                     st.session_state.editando_ex_id = None
                                     st.rerun()
                         else:
-                            col_ex_nome.write(f"   - {nome_c}")
-                            if col_btn_edit.button("Editar ✏️", key=f"btn_edit_trigger_{id_c}"):
+                            col_ex_nome.markdown(f"<span style='padding-left:15px; font-size:0.95rem;'>• {nome_c}</span>", unsafe_allow_html=True)
+                            if col_btn_edit.button("Editar ✏️", key=f"btn_edit_trigger_{id_c}", use_container_width=True):
                                 st.session_state.editando_ex_id = id_c
                                 st.rerun()
-                            if col_btn_del.button("Remover", key=f"del_custom_list_{id_c}"):
+                            if col_btn_del.button("Remover", key=f"del_custom_list_{id_c}", use_container_width=True):
                                 if deletar_exercicio_custom(username, nome_c, grupo_c):
                                     invalidar_cache_custom()
                                     st.success(f"Removido: {nome_c}")
                                     st.rerun()
+                    st.markdown("<br>", unsafe_allow_html=True)
 
         st.markdown("---")
         st.markdown("### Dados da Conta")
@@ -1111,7 +1112,7 @@ else:
                     if res_p:
                         st.session_state.perfil = res_p
                         st.session_state.editando_perfil = False
-                        st.success("Perfil updated!")
+                        st.success("Perfil atualizado!")
                         st.rerun()
                         
                 if c_cancelar.form_submit_button("Cancelar", use_container_width=True):
