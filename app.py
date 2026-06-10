@@ -49,6 +49,7 @@ defaults = {
     "aba_atual": "🏋️ Treino",
     "mostrar_form_novo_ex": False,
     "exercicios_custom": {},
+    "editando_ex_id": None,  # Controla qual exercício customizado está sendo renomeado
 }
 
 for k, v in defaults.items():
@@ -102,10 +103,10 @@ def login_usuario(username, senha):
         st.error(f"Erro no login: {e}")
         return None
 
-def atualizar_perfil(username, nome, objetivo, dias, tempo):
+def atualizar_perfil(username, nome, objective, dias, tempo):
     try:
         r = supabase.table("perfis").update({
-            "nome": nome, "objetivo": objetivo,
+            "nome": nome, "objetivo": objective,
             "dias_por_semana": dias, "tempo_disponivel": tempo,
         }).eq("username", username).execute()
         return r.data[0] if r.data else None
@@ -353,19 +354,23 @@ def render_weekly_tracker(treinos):
     st.markdown(html, unsafe_allow_html=True)
 
 # ====================== FUNÇÕES DE EXERCÍCIOS CUSTOM ======================
-def buscar_exercicios_custom(username):
+def buscar_exercicios_custom_raw(username):
     try:
         r = supabase.table("exercicios_custom").select("*").eq("username", username).order("nome").execute()
-        resultado = {}
-        for row in (r.data or []):
-            grupo = row["grupo"]
-            if grupo not in resultado:
-                resultado[grupo] = []
-            resultado[grupo].append(row["nome"])
-        return resultado
+        return r.data or []
     except Exception as e:
-        st.error(f"Erro ao buscar exercícios custom: {e}")
-        return {}
+        st.error(f"Erro ao buscar exercícios custom estruturados: {e}")
+        return []
+
+def buscar_exercicios_custom(username):
+    data = buscar_exercicios_custom_raw(username)
+    resultado = {}
+    for row in data:
+        grupo = row["grupo"]
+        if grupo not in resultado:
+            resultado[grupo] = []
+        resultado[grupo].append(row["nome"])
+    return resultado
 
 def cadastrar_exercicio_custom(username, nome, grupo):
     try:
@@ -380,6 +385,14 @@ def cadastrar_exercicio_custom(username, nome, grupo):
         return True, "ok"
     except Exception as e:
         return False, str(e)
+
+def atualizar_exercicio_custom(exercicio_id, novo_nome):
+    try:
+        supabase.table("exercicios_custom").update({"nome": novo_nome}).eq("id", exercicio_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao renomear: {e}")
+        return False
 
 def deletar_exercicio_custom(username, nome, grupo):
     try:
@@ -409,7 +422,7 @@ def get_exercicios_merged(username):
 def invalidar_cache_custom():
     st.session_state.exercicios_custom = {}
 
-# ====================== CSS INJETADO (STYLING MODIFICADO) ======================
+# ====================== CSS INJETADO (STYLING ATUALIZADO) ======================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@300;400;600;700&display=swap');
@@ -444,31 +457,44 @@ h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0
 }
 div[data-testid="stForm"] { border: 1px solid #1e1e2e !important; }
 
-/* === CUSTOMIZAÇÃO DOS BOTÕES DO NAV (st.radio horizontal) === */
-div[data-testid="stRadio"] > div[role="radiogroup"] {
-    justify-content: space-between;
-    gap: 4px;
+/* === NOVO SELETOR COMPATÍVEL STREAMLIT NAV (st.radio horizontal) === */
+div[data-testid="stHorizontalBlock"] div[data-testid="stWidgetLabel"] {
+    display: none !important;
 }
-div[data-testid="stRadio"] label {
+div[data-testid="stRadio"] > div[role="radiogroup"] {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+}
+div[data-testid="stRadio"] div[role="radiogroup"] > label {
     background: #111118 !important;
     border: 1px solid #1e1e2e !important;
-    padding: 8px 14px !important;
+    padding: 8px 12px !important;
     border-radius: 20px !important;
-    min-width: 90px;
+    flex: 1;
     text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
     transition: all 0.25s ease;
 }
-/* Estilo quando ativo / marcado */
-div[data-testid="stRadio"] label[data-checked="true"] {
+/* Alinhamento do conteúdo selecionado */
+div[data-testid="stRadio"] div[role="radiogroup"] label[data-checked="true"] {
     background: linear-gradient(135deg, #a855f7, #6366f1) !important;
     border-color: transparent !important;
     color: white !important;
     box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
 }
-/* Ocultar a bolinha padrão do radio do Streamlit */
-div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"]::before,
-div[data-testid="stRadio"] label div[role="img"] {
+/* Remove de forma definitiva os radio-buttons circulares nativos */
+div[data-testid="stRadio"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"]::before,
+div[data-testid="stRadio"] div[role="radiogroup"] label input[type="radio"],
+div[data-testid="stRadio"] div[role="radiogroup"] label div[class*="StyledRadio"] {
     display: none !important;
+    width: 0px !important;
+    height: 0px !important;
+    margin: 0px !important;
 }
 
 /* === CHECKBOX TOTALMENTE VERDE QUANDO MARCADO === */
@@ -570,10 +596,10 @@ else:
             st.query_params.clear()
             st.rerun()
 
-    abas = ["Treino", "Planos", "Histórico", "Stats", "Medidas", "Perfil"]
+    abas = ["🏋️ Treino", "📋 Planos", "📜 Histórico", "📊 Stats", "📐 Medidas", "👤 Perfil"]
     
     if st.session_state.aba_atual not in abas:
-        st.session_state.aba_atual = "Treino"
+        st.session_state.aba_atual = "🏋️ Treino"
         
     idx_inicial = abas.index(st.session_state.aba_atual)
 
@@ -593,7 +619,7 @@ else:
     st.markdown("---")
 
     # ── ABA TREINO ──────────────────────────────────────────────────────────────
-    if st.session_state.aba_atual == "Treino":
+    if st.session_state.aba_atual == "🏋️ Treino":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Registrar Treino de Hoje</h2>', unsafe_allow_html=True)
         treinos_semana = buscar_treinos(username, limit=30)
         render_weekly_tracker(treinos_semana)
@@ -757,7 +783,7 @@ else:
                         st.error("Erro ao salvar o treino.")
 
     # ── ABA PLANOS ──────────────────────────────────────────────────────────────
-    elif st.session_state.aba_atual == "Planos":
+    elif st.session_state.aba_atual == "📋 Planos":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meus Planos de Treino</h2>', unsafe_allow_html=True)
         EXERCICIOS = get_exercicios_merged(username)
 
@@ -828,7 +854,7 @@ else:
                                 "feito": False
                             })
                         persistir_rascunho_treino(username, st.session_state.treino_exercicios)
-                        st.session_state.aba_atual = "Treino"
+                        st.session_state.aba_atual = "🏋️ Treino"
                         st.success("Exercícios carregados na aba Treino!")
                         st.rerun()
                         
@@ -838,7 +864,7 @@ else:
                     st.markdown('</div>', unsafe_allow_html=True)
 
     # ── ABA HISTÓRICO ───────────────────────────────────────────────────────────
-    elif st.session_state.aba_atual == "Histórico":
+    elif st.session_state.aba_atual == "📜 Histórico":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meus Treinos Anteriores</h2>', unsafe_allow_html=True)
         treinos = buscar_treinos(username, limit=50)
         
@@ -877,7 +903,7 @@ else:
                     st.markdown('</div>', unsafe_allow_html=True)
 
     # ── ABA STATS ───────────────────────────────────────────────────────────────
-    elif st.session_state.aba_atual == "Stats":
+    elif st.session_state.aba_atual == "📊 Stats":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Estatísticas e Evolução</h2>', unsafe_allow_html=True)
         stats = get_stats_gerais(username)
         
@@ -921,7 +947,7 @@ else:
                     st.altair_chart(chart_linha, use_container_width=True)
 
     # ── ABA MEDIDAS ─────────────────────────────────────────────────────────────
-    elif st.session_state.aba_atual == "Medidas":
+    elif st.session_state.aba_atual == "📐 Medidas":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Acompanhamento Corporal</h2>', unsafe_allow_html=True)
         
         with st.expander("📐 Registrar Novas Medidas", expanded=False):
@@ -1004,25 +1030,61 @@ else:
                             st.rerun()
 
     # ── ABA PERFIL ──────────────────────────────────────────────────────────────
-    elif st.session_state.aba_atual == "Perfil":
+    elif st.session_state.aba_atual == "👤 Perfil":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Configurações do Meu Perfil</h2>', unsafe_allow_html=True)
         
-        # Gerenciamento de exercícios customizados cadastrados por esta conta
-        st.markdown("### Meus Exercícios Customizados")
-        EXERCICIOS_CUSTOM_CONTA = buscar_exercicios_custom(username)
-        if not EXERCICIOS_CUSTOM_CONTA:
-            st.info("Você ainda não criou nenhum exercício personalizado.")
-        else:
-            for grupo_c, lista_c in EXERCICIOS_CUSTOM_CONTA.items():
-                st.markdown(f"**{grupo_c}**")
-                for nome_c in lista_c:
-                    col_ex_nome, col_ex_btn = st.columns([8, 2])
-                    col_ex_nome.write(f"   - {nome_c}")
-                    if col_ex_btn.button("Remover", key=f"del_custom_list_{grupo_c}_{nome_c.replace(' ', '_')}"):
-                        if deletar_exercicio_custom(username, nome_c, grupo_c):
-                            invalidar_cache_custom()
-                            st.success(f"Removido: {nome_c}")
-                            st.rerun()
+        # MELHORIA: Envelopado dentro de um expander para não poluir a tela caso cresça muito
+        with st.expander("🛠️ Ver / Gerenciar Exercícios Customizados", expanded=False):
+            st.markdown("### Meus Exercícios Customizados")
+            EXERCICIOS_RAW = buscar_exercicios_custom_raw(username)
+            
+            if not EXERCICIOS_RAW:
+                st.info("Você ainda não criou nenhum exercício personalizado.")
+            else:
+                # Agrupando localmente para exibição estruturada
+                grupos_vistos = {}
+                for row in EXERCICIOS_RAW:
+                    g = row["grupo"]
+                    if g not in grupos_vistos:
+                        grupos_vistos[g] = []
+                    grupos_vistos[g].append(row)
+                    
+                for grupo_c, rows_c in grupos_vistos.items():
+                    st.markdown(f"**{grupo_c}**")
+                    for ex_row in rows_c:
+                        id_c = ex_row["id"]
+                        nome_c = ex_row["nome"]
+                        
+                        col_ex_nome, col_btn_edit, col_btn_del = st.columns([6, 2, 2])
+                        
+                        # Verifica se este exercício específico está em modo de edição
+                        if st.session_state.editando_ex_id == id_c:
+                            with col_ex_nome:
+                                novo_nome_input = st.text_input("Novo nome", value=nome_c, key=f"edit_inp_{id_c}", label_visibility="collapsed")
+                            with col_btn_edit:
+                                if st.button("💾", key=f"save_ex_{id_c}", help="Salvar Alteração"):
+                                    if novo_nome_input.strip() and novo_nome_input.strip() != nome_c:
+                                        if atualizar_exercicio_custom(id_c, novo_nome_input.strip()):
+                                            invalidar_cache_custom()
+                                            st.session_state.editando_ex_id = None
+                                            st.rerun()
+                                    else:
+                                        st.session_state.editando_ex_id = None
+                                        st.rerun()
+                            with col_btn_del:
+                                if st.button("❌", key=f"cancel_ex_{id_c}", help="Cancelar"):
+                                    st.session_state.editando_ex_id = None
+                                    st.rerun()
+                        else:
+                            col_ex_nome.write(f"   - {nome_c}")
+                            if col_btn_edit.button("Editar ✏️", key=f"btn_edit_trigger_{id_c}"):
+                                st.session_state.editando_ex_id = id_c
+                                st.rerun()
+                            if col_btn_del.button("Remover", key=f"del_custom_list_{id_c}"):
+                                if deletar_exercicio_custom(username, nome_c, grupo_c):
+                                    invalidar_cache_custom()
+                                    st.success(f"Removido: {nome_c}")
+                                    st.rerun()
 
         st.markdown("---")
         st.markdown("### Dados da Conta")
@@ -1049,7 +1111,7 @@ else:
                     if res_p:
                         st.session_state.perfil = res_p
                         st.session_state.editando_perfil = False
-                        st.success("Perfil atualizado!")
+                        st.success("Perfil updated!")
                         st.rerun()
                         
                 if c_cancelar.form_submit_button("Cancelar", use_container_width=True):
