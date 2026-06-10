@@ -35,7 +35,6 @@ EXERCICIOS_BASE = {
 }
 
 GRUPOS_MUSCULARES = list(EXERCICIOS_BASE.keys())
-
 OBJETIVOS = ["Hipertrofia", "Emagrecimento", "Condicionamento", "Força"]
 TEMPOS = ["45 min", "1h", "1h15", "1h30", "2h"]
 
@@ -354,7 +353,6 @@ def render_weekly_tracker(treinos):
     st.markdown(html, unsafe_allow_html=True)
 
 # ====================== FUNÇÕES DE EXERCÍCIOS CUSTOM ======================
-
 def buscar_exercicios_custom(username):
     try:
         r = supabase.table("exercicios_custom").select("*").eq("username", username).order("nome").execute()
@@ -411,12 +409,13 @@ def get_exercicios_merged(username):
 def invalidar_cache_custom():
     st.session_state.exercicios_custom = {}
 
-# ====================== CSS ======================
+# ====================== CSS INJETADO (STYLING MODIFICADO) ======================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@300;400;600;700&display=swap');
 html, body, [class*="css"] { font-family: 'Nunito', sans-serif; background-color: #0a0a0f; }
 h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0.04em; }
+
 .ex-card {
     background:#111118; border-left:4px solid #FFA500;
     border-radius:12px; padding:12px 16px; margin-bottom:10px;
@@ -424,7 +423,7 @@ h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0
 .ex-card-done {
     background:#0b130e; border-left:4px solid #22c55e;
     border-radius:12px; padding:12px 16px; margin-bottom:10px;
-    opacity: 0.5;
+    opacity: 0.6;
 }
 .hist-card {
     background:#111118; border:1px solid #1e1e2e;
@@ -440,11 +439,46 @@ h1, h2, h3 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0
     border-radius:14px; padding:18px; text-align:center;
 }
 .novo-ex-box {
-    background:#111118; border:1px solid #2a1f3a;
-    border-left:4px solid #e53935; border-radius:14px;
-    padding:16px 18px; margin-bottom:16px;
+    background:#111118; border:1px solid #e53935;
+    border-radius:14px; padding:20px; margin: 15px 0;
 }
 div[data-testid="stForm"] { border: 1px solid #1e1e2e !important; }
+
+/* === CUSTOMIZAÇÃO DOS BOTÕES DO NAV (st.radio horizontal) === */
+div[data-testid="stRadio"] > div[role="radiogroup"] {
+    justify-content: space-between;
+    gap: 4px;
+}
+div[data-testid="stRadio"] label {
+    background: #111118 !important;
+    border: 1px solid #1e1e2e !important;
+    padding: 8px 14px !important;
+    border-radius: 20px !important;
+    min-width: 90px;
+    text-align: center;
+    transition: all 0.25s ease;
+}
+/* Estilo quando ativo / marcado */
+div[data-testid="stRadio"] label[data-checked="true"] {
+    background: linear-gradient(135deg, #a855f7, #6366f1) !important;
+    border-color: transparent !important;
+    color: white !important;
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+}
+/* Ocultar a bolinha padrão do radio do Streamlit */
+div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"]::before,
+div[data-testid="stRadio"] label div[role="img"] {
+    display: none !important;
+}
+
+/* === CHECKBOX TOTALMENTE VERDE QUANDO MARCADO === */
+div[data-testid="stCheckbox"] label span div {
+    border-color: #22c55e !important;
+}
+div[data-testid="stCheckbox"] input[type="checkbox"]:checked + div {
+    background-color: #22c55e !important;
+    border-color: #22c55e !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -452,7 +486,7 @@ div[data-testid="stForm"] { border: 1px solid #1e1e2e !important; }
 if st.session_state.tela_atual == "login":
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<h1 style="font-family:Bebas Neue,sans-serif;font-size:3rem;letter-spacing:.06em;text-align:center">🏋️‍♂️ MEU TREINO</h1>', unsafe_allow_html=True)
-    usuario = st.text_input("Usuário", placeholder="edigar.silva").lower().strip()
+    usuario = st.text_input("Usuário", placeholder="seu.usuario").lower().strip()
     senha = st.text_input("Senha", type="password", max_chars=10)
     
     if st.button("Entrar →", use_container_width=True, type="primary"):
@@ -477,9 +511,9 @@ if st.session_state.tela_atual == "login":
         st.rerun()
 
 elif st.session_state.tela_atual == "onboarding":
-    st.markdown('<h1 style="font-family:Bebas Neue,sans-serif;font-size:2.2rem">Vamos configure o seu perfil</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="font-family:Bebas Neue,sans-serif;font-size:2.2rem">Vamos configurar o seu perfil</h1>', unsafe_allow_html=True)
     nome     = st.text_input("Nome completo")
-    username = st.text_input("Usuário (login)", placeholder="edigar.silva").lower().strip()
+    username = st.text_input("Usuário (login)", placeholder="Ex: joao.silva").lower().strip()
     senha    = st.text_input("Senha", type="password", max_chars=10)
     objetivo = st.selectbox("Objetivo Principal", OBJETIVOS)
     dias     = st.selectbox("Dias de treino por semana", [3,4,5,6])
@@ -526,6 +560,7 @@ else:
             unsafe_allow_html=True
         )
     with col_sair:
+        st.markdown("<div style='margin-top: 24px;'></div>", unsafe_allow_html=True)
         if st.button("Sair"):
             st.session_state.tela_atual = "login"
             st.session_state.usuario_logado = None
@@ -535,10 +570,10 @@ else:
             st.query_params.clear()
             st.rerun()
 
-    abas = ["🏋️ Treino", "📅 Planos", "📋 Histórico", "📊 Stats", "⚖️ Medidas", "👤 Perfil"]
+    abas = ["Treino", "Planos", "Histórico", "Stats", "Medidas", "Perfil"]
     
     if st.session_state.aba_atual not in abas:
-        st.session_state.aba_atual = "🏋️ Treino"
+        st.session_state.aba_atual = "Treino"
         
     idx_inicial = abas.index(st.session_state.aba_atual)
 
@@ -558,7 +593,7 @@ else:
     st.markdown("---")
 
     # ── ABA TREINO ──────────────────────────────────────────────────────────────
-    if st.session_state.aba_atual == "🏋️ Treino":
+    if st.session_state.aba_atual == "Treino":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Registrar Treino de Hoje</h2>', unsafe_allow_html=True)
         treinos_semana = buscar_treinos(username, limit=30)
         render_weekly_tracker(treinos_semana)
@@ -567,13 +602,7 @@ else:
 
         grupo = st.selectbox("Grupo Muscular", list(EXERCICIOS.keys()))
 
-        opcoes_exercicio = EXERCICIOS[grupo] + ["➕ Criar novo exercício..."]
-        exercicio_sel = st.selectbox("Exercício", opcoes_exercicio)
-
-        if exercicio_sel != "➕ Criar novo exercício...":
-            st.session_state.mostrar_form_novo_ex = False
-
-        if exercicio_sel == "➕ Criar novo exercício...":
+        if st.button("➕ Criar Novo Exercício Customizado", use_container_width=True):
             st.session_state.mostrar_form_novo_ex = True
 
         if st.session_state.mostrar_form_novo_ex:
@@ -581,17 +610,8 @@ else:
             st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;margin-top:0;">Cadastrar Novo Exercício</h3>', unsafe_allow_html=True)
 
             with st.form("form_novo_exercicio", clear_on_submit=True):
-                nome_novo_ex = st.text_input(
-                    "Nome do exercício",
-                    placeholder="Ex: Rosca Scott com Haltere",
-                    max_chars=80,
-                )
-                grupo_novo_ex = st.selectbox(
-                    "Grupo Muscular",
-                    GRUPOS_MUSCULARES,
-                    index=GRUPOS_MUSCULARES.index(grupo) if grupo in GRUPOS_MUSCULARES else 0,
-                    key="grupo_novo_ex_select"
-                )
+                nome_novo_ex = st.text_input("Nome do exercício", placeholder="Ex: Rosca Scott com Haltere", max_chars=80)
+                grupo_novo_ex = st.selectbox("Grupo Muscular", GRUPOS_MUSCULARES, index=GRUPOS_MUSCULARES.index(grupo) if grupo in GRUPOS_MUSCULARES else 0)
 
                 col_salvar_ex, col_cancelar_ex = st.columns(2)
                 with col_salvar_ex:
@@ -619,9 +639,11 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True)
 
-        if not st.session_state.mostrar_form_novo_ex and exercicio_sel != "➕ Criar novo exercício...":
-            exercicio = exercicio_sel
+        opcoes_exercicio = EXERCICIOS[grupo]
+        exercicio_sel = st.selectbox("Exercício", opcoes_exercicio)
 
+        if exercicio_sel:
+            exercicio = exercicio_sel
             ultimo_peso = get_ultimo_peso(username, exercicio)
             sugestao    = round(ultimo_peso + 2.5, 1) if ultimo_peso > 0 else 0.0
 
@@ -665,7 +687,6 @@ else:
 
             for i, ex in enumerate(lista_atualizada):
                 col_check, col_texto, col_peso_edit, col_del = st.columns([0.8, 5.2, 3, 1])
-                
                 chk_key = f"render_chk_{i}_{ex['nome'].replace(' ', '_')}"
                 inp_key = f"render_peso_{i}_{ex['nome'].replace(' ', '_')}"
 
@@ -686,14 +707,7 @@ else:
                     )
                     
                 with col_peso_edit:
-                    novo_peso = st.number_input(
-                        "Carga (kg)", 
-                        min_value=0.0, 
-                        max_value=500.0, 
-                        step=0.5, 
-                        value=float(ex.get("peso", 0.0)),
-                        key=inp_key
-                    )
+                    novo_peso = st.number_input("Carga (kg)", min_value=0.0, max_value=500.0, step=0.5, value=float(ex.get("peso", 0.0)), key=inp_key)
                     if novo_peso != ex.get("peso", 0.0):
                         lista_atualizada[i]["peso"] = novo_peso
                         houve_mudanca = True
@@ -732,7 +746,7 @@ else:
                         
                     resposta = salvar_treino(username, dados_para_salvar, duracao, notas)
                     if resposta:
-                        st.success("Treino salvo! 💪")
+                        st.success("Treino salvo com sucesso! 💪")
                         for k in list(st.session_state.keys()):
                             if "render_chk_" in k or "render_peso_" in k:
                                 st.session_state.pop(k, None)
@@ -743,107 +757,89 @@ else:
                         st.error("Erro ao salvar o treino.")
 
     # ── ABA PLANOS ──────────────────────────────────────────────────────────────
-    elif st.session_state.aba_atual == "📅 Planos":
+    elif st.session_state.aba_atual == "Planos":
         st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meus Planos de Treino</h2>', unsafe_allow_html=True)
-
         EXERCICIOS = get_exercicios_merged(username)
 
         with st.expander("➕ Criar Novo Plano", expanded=False):
             nome_plano  = st.text_input("Nome do plano", placeholder="Ex: Treino A - Peito e Tríceps")
-            descricao   = st.text_input("Descrição", placeholder="Ex: Foco em hipertrofia")
-
-            grupo_p     = st.selectbox("Grupo Muscular", list(EXERCICIOS.keys()), key="plano_grupo")
-            exercicio_p = st.selectbox("Exercício", EXERCICIOS[grupo_p], key="plano_ex")
-            cp1, cp2, cp3 = st.columns(3)
-            with cp1:
-                series_p = st.number_input("Séries", 1, 10, 3, key="plano_series")
-            with cp2:
-                reps_p = st.number_input("Reps", 1, 50, 12, key="plano_reps")
-            with cp3:
-                peso_p = st.number_input("Peso ref. (kg)", 0.0, 500.0, 0.0, 0.5, key="plano_peso")
-
-            if st.button("➕ Adicionar ao Plano", use_container_width=True):
+            descricao   = st.text_area("Descrição / Notas", placeholder="Ex: Foco em progressão de carga")
+            
+            st.markdown("---")
+            st.markdown("#### Adicionar Exercícios ao Plano")
+            p_grupo = st.selectbox("Grupo Muscular ", list(EXERCICIOS.keys()))
+            p_exercicio = st.selectbox("Exercício ", EXERCICIOS[p_grupo])
+            
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                p_series = st.number_input("Séries ", min_value=1, max_value=10, value=4)
+            with c2:
+                p_reps = st.number_input("Reps ", min_value=1, max_value=50, value=10)
+            with c3:
+                p_peso = st.number_input("Carga Sugerida (kg)", min_value=0.0, step=0.5, value=0.0)
+                
+            if st.button("➕ Vincular ao Plano"):
                 st.session_state.plano_exercicios_tmp.append({
-                    "nome": exercicio_p, "grupo": grupo_p,
-                    "series": int(series_p), "reps": int(reps_p), "peso": float(peso_p)
+                    "nome": p_exercicio, "grupo": p_grupo,
+                    "series": int(p_series), "reps": int(p_reps), "peso": float(p_peso)
                 })
+                st.success(f"{p_exercicio} adicionado à lista do plano!")
                 st.rerun()
-
+                
             if st.session_state.plano_exercicios_tmp:
-                st.markdown("**Exercícios no plano:**")
-                for i, ex in enumerate(st.session_state.plano_exercicios_tmp):
-                    cp_a, cp_b = st.columns([9, 1])
-                    with cp_a:
-                        st.markdown(
-                            '<div class="ex-card"><strong>' + ex["nome"] + '</strong><br>'
-                            + str(ex["series"]) + '×' + str(ex["reps"]) + ' @ ' + str(ex["peso"]) + 'kg</div>',
-                            unsafe_allow_html=True
-                        )
-                    with cp_b:
-                        if st.button("🗑", key="pdel" + str(i)):
-                            st.session_state.plano_exercicios_tmp.pop(i)
-                            st.rerun()
-
-                col_salvar, col_limpar = st.columns(2)
-                with col_salvar:
-                    if st.button("💾 Salvar Plano", type="primary", use_container_width=True):
-                        if nome_plano:
-                            salvar_plano(username, nome_plano, descricao, st.session_state.plano_exercicios_tmp)
+                st.markdown("##### Exercícios Selecionados:")
+                for idx, ex in enumerate(st.session_state.plano_exercicios_tmp):
+                    col_t, col_b = st.columns([8, 2])
+                    col_t.markdown(f"- **{ex['nome']}** ({ex['grupo']}): {ex['series']}x{ex['reps']} - {ex['peso']}kg")
+                    if col_b.button("Remover", key=f"rem_plano_tmp_{idx}"):
+                        st.session_state.plano_exercicios_tmp.pop(idx)
+                        st.rerun()
+                        
+                if st.button("💾 Salvar Plano de Treino Completo", type="primary", use_container_width=True):
+                    if nome_plano and st.session_state.plano_exercicios_tmp:
+                        if salvar_plano(username, nome_plano, descricao, st.session_state.plano_exercicios_tmp):
                             st.success("Plano salvo!")
                             st.session_state.plano_exercicios_tmp = []
                             st.rerun()
-                        else:
-                            st.warning("Dê um nome ao plano.")
-                with col_limpar:
-                    if st.button("🗑 Limpar tudo", use_container_width=True):
-                        st.session_state.plano_exercicios_tmp = []
-                        st.rerun()
+                    else:
+                        st.error("Preencha o nome e insira pelo menos um exercício.")
 
-        st.markdown("### Planos Salvos")
         planos = buscar_planos(username)
         if not planos:
-            st.info("Nenhum plano criado ainda.")
+            st.info("Nenhum plano cadastrado.")
         else:
-            for plano in planos:
+            for p in planos:
                 with st.container():
-                    st.markdown(
-                        '<div class="plano-card">'
-                        '<strong style="font-size:1.05rem;">' + plano.get("nome", "") + '</strong><br>'
-                        '<span style="color:#888;font-size:0.85rem;">' + (plano.get("descricao") or "") + '</span>'
-                        '</div>',
-                        unsafe_allow_html=True
-                    )
-                    exs = plano.get("exercicios", [])
+                    st.markdown(f'<div class="plano-card"><h3>📋 {p["nome"].upper()}</h3>', unsafe_allow_html=True)
+                    if p.get("descricao"):
+                        st.markdown(f"*{p['descricao']}*")
+                    
+                    exs = p.get("exercicios", [])
                     for ex in exs:
-                        st.markdown(
-                            '<div style="padding:6px 12px;margin-bottom:4px;background:#1a1a28;border-radius:8px;font-size:0.9rem;">'
-                            + ex.get("nome","") + ' — ' + str(ex.get("series","")) + '×' + str(ex.get("reps",""))
-                            + (' @ ' + str(ex.get("peso","")) + 'kg' if ex.get("peso",0) > 0 else "")
-                            + '</div>',
-                            unsafe_allow_html=True
-                        )
-
-                    col_usar, col_del = st.columns([3, 1])
-                    with col_usar:
-                        if st.button("▶️ Usar este plano hoje", key="usar_" + str(plano["id"]), use_container_width=True, type="primary"):
-                            st.session_state.treino_exercicios = []
-                            for k in list(st.session_state.keys()):
-                                if "render_chk_" in k or "render_peso_" in k:
-                                    st.session_state.pop(k, None)
-                            for e in exs:
-                                item = dict(e)
-                                item["feito"] = False
-                                st.session_state.treino_exercicios.append(item)
-                            persistir_rascunho_treino(username, st.session_state.treino_exercicios)
+                        st.markdown(f"🏋️‍♂️ {ex['nome']} | {ex['series']}x{ex['reps']} — *{ex['peso']} kg*")
+                    
+                    c_iniciar, c_del = st.columns([7, 3])
+                    if c_iniciar.button("⚡ Iniciar este Treino", key=f"start_plano_{p['id']}", use_container_width=True):
+                        st.session_state.treino_exercicios = []
+                        for ex in exs:
+                            st.session_state.treino_exercicios.append({
+                                "nome": ex["nome"], "grupo": ex.get("grupo", "Outro"),
+                                "series": ex["series"], "reps": ex["reps"], "peso": ex["peso"],
+                                "feito": False
+                            })
+                        persistir_rascunho_treino(username, st.session_state.treino_exercicios)
+                        st.session_state.aba_atual = "Treino"
+                        st.success("Exercícios carregados na aba Treino!")
+                        st.rerun()
+                        
+                    if c_del.button("Deletar Plano", key=f"del_plano_{p['id']}", use_container_width=True):
+                        if deletar_plano(p["id"]):
                             st.rerun()
-                    with col_del:
-                        if st.button("🗑", key="del_plano_" + str(plano["id"]), use_container_width=True):
-                            deletar_plano(plano["id"])
-                            st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
     # ── ABA HISTÓRICO ───────────────────────────────────────────────────────────
-    elif st.session_state.aba_atual == "📋 Histórico":
-        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Histórico de Treinos</h2>', unsafe_allow_html=True)
+    elif st.session_state.aba_atual == "Histórico":
+        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meus Treinos Anteriores</h2>', unsafe_allow_html=True)
         treinos = buscar_treinos(username, limit=50)
         
         if not treinos:
@@ -851,371 +847,211 @@ else:
         else:
             for t in treinos:
                 dt = datetime.strptime(t["data"], "%Y-%m-%d")
-                dt_str = f"{dt.day} de {MESES_BR[dt.month]} de {dt.year}"
+                data_formatada = f"{dt.day} de {MESES_BR[dt.month]} de {dt.year}"
                 
                 with st.container():
                     st.markdown(
-                        f'<div class="hist-card">'
-                        f'<div style="display:flex;justify-content:between;align-items:center;">'
-                        f'<strong style="font-size:1.1rem;color:#FFA500;">⏱️ {t.get("duracao_min", 60)} min</strong>'
-                        f'<span style="color:#666;font-size:0.85rem;margin-left:auto;">{dt_str}</span>'
-                        f'</div>',
+                        f'<div class="hist-card"><div style="display:flex;justify-content:between;align-items:center;">'
+                        f'<div><span style="color:#a855f7;font-weight:bold;font-size:1.1rem;">⚡ TREINO REALIZADO</span><br>'
+                        f'<span style="color:#666;font-size:0.85rem;">{data_formatada} • 🕒 {t.get("duracao_min", 0)} min</span></div>'
+                        f'</div><br>', 
                         unsafe_allow_html=True
                     )
-                    if t.get("notas"):
-                        st.markdown(f'<div style="color:#aaa;font-size:0.9rem;font-style:italic;margin:6px 0;">💬 {t["notas"]}</div>', unsafe_allow_html=True)
                     
+                    if t.get("notas"):
+                        st.markdown(f"📝 *Observações: {t['notas']}*")
+                        
                     exs = t.get("exercicios", [])
-                    for ex in exs:
-                        st.markdown(
-                            f'<div style="font-size:0.9rem;padding:2px 0;">'
-                            f'• <strong>{ex.get("nome","")}</strong>: {ex.get("series")}×{ex.get("reps")} @ {ex.get("peso")}kg'
-                            f'</div>',
-                            unsafe_allow_html=True
-                        )
+                    if exs:
+                        df_ex = pd.DataFrame(exs)
+                        if "peso" in df_ex.columns:
+                            df_ex["peso"] = df_ex["peso"].astype(str) + " kg"
+                        st.dataframe(df_ex[["nome", "grupo", "series", "reps", "peso"]].rename(
+                            columns={"nome":"Exercício","grupo":"Grupo","series":"Séries","reps":"Reps","peso":"Carga"}
+                        ), use_container_width=True, hide_index=True)
+                        
+                    if st.button("Deletar Registro", key=f"del_treino_{t['id']}", type="secondary"):
+                        if deletar_treino(t["id"]):
+                            st.success("Registro removido.")
+                            st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                    # ── BOTÕES DO CARD ──────────────────────────────────────────
-                    col_salvar_plano, col_deletar = st.columns([3, 1])
-
-                    with col_salvar_plano:
-                        chave_toggle = f"mostrar_salvar_plano_{t['id']}"
-
-                        if chave_toggle not in st.session_state:
-                            st.session_state[chave_toggle] = False
-
-                        if not st.session_state[chave_toggle]:
-                            if st.button("📋 Salvar como Plano", key=f"btn_plano_{t['id']}", use_container_width=True):
-                                st.session_state[chave_toggle] = True
-                                st.rerun()
-                        else:
-                            with st.form(f"form_plano_{t['id']}"):
-                                nome_plano_hist = st.text_input(
-                                    "Nome do plano",
-                                    value=f"Treino {dt_str}",
-                                    placeholder="Ex: Treino de Pernas",
-                                )
-                                desc_plano_hist = st.text_input(
-                                    "Descrição (opcional)",
-                                    placeholder="Ex: Foco em volume",
-                                )
-                                col_conf, col_canc = st.columns(2)
-                                with col_conf:
-                                    confirmar = st.form_submit_button("💾 Confirmar", type="primary", use_container_width=True)
-                                with col_canc:
-                                    cancelar = st.form_submit_button("Cancelar", use_container_width=True)
-
-                                if confirmar:
-                                    if nome_plano_hist.strip():
-                                        exercicios_plano = [
-                                            {k: ex[k] for k in ("nome", "grupo", "series", "reps", "peso") if k in ex}
-                                            for ex in exs
-                                        ]
-                                        resultado = salvar_plano(username, nome_plano_hist.strip(), desc_plano_hist.strip(), exercicios_plano)
-                                        if resultado:
-                                            st.success(f'Plano "{nome_plano_hist}" salvo! Veja na aba 📅 Planos.')
-                                            st.session_state[chave_toggle] = False
-                                            st.rerun()
-                                    else:
-                                        st.warning("Digite um nome para o plano.")
-
-                                if cancelar:
-                                    st.session_state[chave_toggle] = False
-                                    st.rerun()
-
-                    with col_deletar:
-                        if st.button("Deletar", key=f"del_t_{t['id']}", use_container_width=True, type="secondary"):
-                            if deletar_treino(t["id"]):
-                                st.rerun()
-
     # ── ABA STATS ───────────────────────────────────────────────────────────────
-    elif st.session_state.aba_atual == "📊 Stats":
-        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Estatísticas e Cargas</h2>', unsafe_allow_html=True)
+    elif st.session_state.aba_atual == "Stats":
+        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Estatísticas e Evolução</h2>', unsafe_allow_html=True)
         stats = get_stats_gerais(username)
         
-        TODOS_EXERCICIOS_MERGED = sorted({e for lst in get_exercicios_merged(username).values() for e in lst})
-
         if not stats:
-            st.info("Dados insuficientes para gerar relatórios.")
+            st.info("Sem dados suficientes para gerar estatísticas.")
         else:
             c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                st.markdown(f'<div class="stat-card"><span style="font-size:0.8rem;color:#888;">TREINOS</span><br><strong style="font-size:1.8rem;color:#a855f7;">{stats["total_treinos"]}</strong></div>', unsafe_allow_html=True)
-            with c2:
-                st.markdown(f'<div class="stat-card"><span style="font-size:0.8rem;color:#888;">HORAS</span><br><strong style="font-size:1.8rem;color:#22c55e;">{stats["total_horas"]}h</strong></div>', unsafe_allow_html=True)
-            with c3:
-                st.markdown(f'<div class="stat-card"><span style="font-size:0.8rem;color:#888;">SÉRIES TOTAL</span><br><strong style="font-size:1.8rem;color:#3b82f6;">{stats["total_series"]}</strong></div>', unsafe_allow_html=True)
-            with c4:
-                st.markdown(f'<div class="stat-card"><span style="font-size:0.8rem;color:#888;">STREAK</span><br><strong style="font-size:1.8rem;color:#f59e0b;">🔥 {stats["streak"]}</strong></div>', unsafe_allow_html=True)
-                
-            st.markdown("### Evolução de Carga")
-            ex_alvo = st.selectbox("Selecione o Exercício para o Gráfico", TODOS_EXERCICIOS_MERGED)
-            df_carga = get_evolucao_carga(username, ex_alvo)
+            c1.markdown(f'<div class="stat-card"><span style="font-size:2rem;font-weight:bold;color:#a855f7;">{stats["total_treinos"]}</span><br><span style="font-size:0.8rem;color:#888;">Treinos Totais</span></div>', unsafe_allow_html=True)
+            c2.markdown(f'<div class="stat-card"><span style="font-size:2rem;font-weight:bold;color:#22c55e;">{stats["total_horas"]}h</span><br><span style="font-size:0.8rem;color:#888;">Tempo Dedicado</span></div>', unsafe_allow_html=True)
+            c3.markdown(f'<div class="stat-card"><span style="font-size:2rem;font-weight:bold;color:#3b82f6;">{stats["total_series"]}</span><br><span style="font-size:0.8rem;color:#888;">Séries Feitas</span></div>', unsafe_allow_html=True)
+            c4.markdown(f'<div class="stat-card"><span style="font-size:2rem;font-weight:bold;color:#f59e0b;">{stats["streak"]} 🔥</span><br><span style="font-size:0.8rem;color:#888;">Frequência Atual</span></div>', unsafe_allow_html=True)
             
-            if df_carga.empty:
-                st.warning("Sem registros de peso significativos para este exercício.")
-            else:
-                df_carga["data"] = pd.to_datetime(df_carga["data"])
-                chart = alt.Chart(df_carga).mark_line(point=True, color="#FFA500").encode(
-                    x=alt.X("data:T", title="Data"),
-                    y=alt.Y("peso:Q", title="Carga máxima (kg)"),
-                    tooltip=["data", "peso", "series", "reps"]
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("### Distribuição por Grupo Muscular")
+            
+            if stats["grupos_count"]:
+                df_grupos = pd.DataFrame(list(stats["grupos_count"].items()), columns=["Grupo", "Quantidade"])
+                chart_pizza = alt.Chart(df_grupos).mark_arc(innerRadius=50).encode(
+                    theta=alt.Theta(field="Quantidade", type="quantitative"),
+                    color=alt.Color(field="Grupo", type="nominal", scale=alt.Scale(scheme="purpleorange")),
+                    tooltip=["Grupo", "Quantidade"]
                 ).properties(height=300)
-                st.altair_chart(chart, use_container_width=True)
+                st.altair_chart(chart_pizza, use_container_width=True)
+                
+            st.markdown("### Análise de Carga por Exercício")
+            EXERCICIOS = get_exercicios_merged(username)
+            g_sel = st.selectbox("Filtrar Grupo para Gráfico", list(EXERCICIOS.keys()))
+            ex_sel = st.selectbox("Escolha o Exercício", EXERCICIOS[g_sel])
+            
+            if ex_sel:
+                df_ev = get_evolucao_carga(username, ex_sel)
+                if df_ev.empty:
+                    st.info("Ainda sem registros com carga para esse exercício.")
+                else:
+                    df_ev["data"] = df_ev["data"].astype(str)
+                    chart_linha = alt.Chart(df_ev).mark_line(point=True, color="#a855f7").encode(
+                        x=alt.X("data:N", title="Data"),
+                        y=alt.Y("peso:Q", title="Carga Máxima (kg)"),
+                        tooltip=["data", "peso", "series", "reps"]
+                    ).properties(height=300)
+                    st.altair_chart(chart_linha, use_container_width=True)
 
     # ── ABA MEDIDAS ─────────────────────────────────────────────────────────────
-    elif st.session_state.aba_atual == "⚖️ Medidas":
-        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Histórico Corporal</h2>', unsafe_allow_html=True)
-
-        with st.expander("📝 Registrar Novas Medidas", expanded=False):
-            with st.form("form_medidas"):
-                peso_m = st.number_input("Peso Atual (kg)", min_value=10.0, max_value=300.0, value=75.0, step=0.1)
-                bf_m = st.number_input("Percentual de Gordura / BF (%)", 0.0, 70.0, 0.0, 0.1)
-                c1, c2 = st.columns(2)
-                with c1:
-                    ombro_m  = st.number_input("Ombro (cm)", 0.0, 250.0, 0.0, 0.5)
-                    peito_m  = st.number_input("Peitoral (cm)", 0.0, 250.0, 0.0, 0.5)
-                    braco_d  = st.number_input("Braço Direito (cm)", 0.0, 80.0, 0.0, 0.5)
-                    coxa_d   = st.number_input("Coxa Direita (cm)", 0.0, 120.0, 0.0, 0.5)
-                    pant_d   = st.number_input("Panturrilha Direita (cm)", 0.0, 80.0, 0.0, 0.5)
-                with c2:
-                    cintura_m = st.number_input("Cintura (cm)", 0.0, 200.0, 0.0, 0.5)
-                    quadril_m = st.number_input("Quadril (cm)", 0.0, 200.0, 0.0, 0.5)
-                    braco_e   = st.number_input("Braço Esquerdo (cm)", 0.0, 80.0, 0.0, 0.5)
-                    coxa_e    = st.number_input("Coxa Esquerda (cm)", 0.0, 120.0, 0.0, 0.5)
-                    pant_e    = st.number_input("Panturrilha Esquerda (cm)", 0.0, 80.0, 0.0, 0.5)
-                if st.form_submit_button("💾 Guardar Avaliação", type="primary", use_container_width=True):
-                    if salvar_medidas(username, peso_m, cintura_m, braco_d, braco_e, bf_m, coxa_d, coxa_e, pant_d, pant_e, quadril_m, peito_m, ombro_m):
-                        st.success("Avaliação salva com sucesso!")
+    elif st.session_state.aba_atual == "Medidas":
+        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Acompanhamento Corporal</h2>', unsafe_allow_html=True)
+        
+        with st.expander("📐 Registrar Novas Medidas", expanded=False):
+            with st.form("form_medidas", clear_on_submit=True):
+                col1, col2, col3 = st.columns(3)
+                p_atual = col1.number_input("Peso (kg) *", min_value=10.0, max_value=300.0, step=0.1, value=80.0)
+                bf_atual = col2.number_input("Percentual de Gordura (% BF)", min_value=0.0, max_value=80.0, step=0.1, value=0.0)
+                cint = col3.number_input("Cintura (cm)", min_value=0.0, step=0.1, value=0.0)
+                
+                col4, col5, col6 = st.columns(3)
+                b_dir = col4.number_input("Braço Direito (cm)", min_value=0.0, step=0.1, value=0.0)
+                b_esq = col5.number_input("Braço Esquerdo (cm)", min_value=0.0, step=0.1, value=0.0)
+                peit = col6.number_input("Peitoral (cm)", min_value=0.0, step=0.1, value=0.0)
+                
+                col7, col8, col9 = st.columns(3)
+                cx_dir = col7.number_input("Coxa Direita (cm)", min_value=0.0, step=0.1, value=0.0)
+                cx_esq = col8.number_input("Coxa Esquerda (cm)", min_value=0.0, step=0.1, value=0.0)
+                quad = col9.number_input("Quadril (cm)", min_value=0.0, step=0.1, value=0.0)
+                
+                col10, col11 = st.columns(2)
+                p_dir = col10.number_input("Panturrilha Direita (cm)", min_value=0.0, step=0.1, value=0.0)
+                p_esq = col11.number_input("Panturrilha Esquerda (cm)", min_value=0.0, step=0.1, value=0.0)
+                
+                omb = st.number_input("Ombro (cm)", min_value=0.0, step=0.1, value=0.0)
+                
+                salvar_m = st.form_submit_button("💾 Salvar Medidas", type="primary", use_container_width=True)
+                
+                if salvar_m:
+                    res = salvar_medidas(
+                        username, p_atual, cint if cint>0 else None, b_dir if b_dir>0 else None, b_esq if b_esq>0 else None,
+                        bf_atual if bf_atual>0 else None, cx_dir if cx_dir>0 else None, cx_esq if cx_esq>0 else None,
+                        p_dir if p_dir>0 else None, p_esq if p_esq>0 else None, quad if quad>0 else None, peit if peit>0 else None, omb if omb>0 else None
+                    )
+                    if res:
+                        st.success("Medidas corporais registradas!")
                         st.rerun()
 
-        medidas_hist = buscar_historico_medidas(username)
-
-        if not medidas_hist:
+        historico_medidas = buscar_historico_medidas(username)
+        if not historico_medidas:
             st.info("Nenhuma medida cadastrada até agora.")
         else:
-            CAMPOS_MEDIDAS = {
-                "peso":               ("⚖️ Peso", "kg"),
-                "percentual_gordura": ("🔥 BF", "%"),
-                "ombro":              ("🏔️ Ombro", "cm"),
-                "peito":              ("🫁 Peito", "cm"),
-                "cintura":            ("📏 Cintura", "cm"),
-                "quadril":            ("🍑 Quadril", "cm"),
-                "braço_direito":      ("💪 Braço Dir.", "cm"),
-                "braço_esquerdo":     ("💪 Braço Esq.", "cm"),
-                "coxa_direita":       ("🦵 Coxa Dir.", "cm"),
-                "coxa_esquerda":      ("🦵 Coxa Esq.", "cm"),
-                "panturrilha_direita":("🦶 Pant. Dir.", "cm"),
-                "panturrilha_esquerda":("🦶 Pant. Esq.", "cm"),
-            }
-
-            medidas_ord = list(reversed(medidas_hist))
-            primeiro    = medidas_ord[0]
-            ultimo      = medidas_ord[-1]
-
-            sub = st.radio("", ["📊 Progresso", "📋 Registros"], horizontal=True,
-                           label_visibility="collapsed", key="sub_medidas")
+            df_medidas = pd.DataFrame(historico_medidas)
+            
+            st.markdown("### Gráfico de Evolução de Peso")
+            df_peso = df_medidas[["data_registro", "peso"]].copy()
+            df_peso["data_registro"] = df_peso["data_registro"].astype(str)
+            chart_peso = alt.Chart(df_peso).mark_line(point=True, color="#22c55e").encode(
+                x=alt.X("data_registro:N", title="Data"),
+                y=alt.Y("peso:Q", title="Peso (kg)", scale=alt.Scale(zero=False)),
+                tooltip=["data_registro", "peso"]
+            ).properties(height=250)
+            st.altair_chart(chart_peso, use_container_width=True)
+            
             st.markdown("---")
-
-            if sub == "📊 Progresso":
-                pesos_df = pd.DataFrame([
-                    {"data": datetime.strptime(m["data_registro"], "%Y-%m-%d"), "peso": float(m["peso"])}
-                    for m in medidas_ord if m.get("peso")
-                ])
-                if not pesos_df.empty:
-                    st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">PESO CORPORAL</h3>', unsafe_allow_html=True)
-                    chart_peso = (
-                        alt.Chart(pesos_df)
-                        .mark_line(point=True, color="#22c55e", strokeWidth=2)
-                        .encode(
-                            x=alt.X("data:T", title="Data"),
-                            y=alt.Y("peso:Q", title="Peso (kg)", scale=alt.Scale(zero=False)),
-                            tooltip=[alt.Tooltip("data:T", title="Data"), alt.Tooltip("peso:Q", title="Peso (kg)")]
-                        )
-                        .properties(height=220)
-                    )
-                    st.altair_chart(chart_peso, use_container_width=True)
-
-                campos_disponiveis = [
-                    (k, v) for k, v in CAMPOS_MEDIDAS.items()
-                    if k != "peso" and any(m.get(k) for m in medidas_ord)
-                ]
-                if campos_disponiveis:
-                    st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">EVOLUÇÃO DE MEDIDAS</h3>', unsafe_allow_html=True)
-                    opcoes_label  = [v[0] for _, v in campos_disponiveis]
-                    opcoes_chaves = [k for k, _ in campos_disponiveis]
-                    sel_label = st.selectbox("Selecione a medida", opcoes_label, key="sel_medida_grafico")
-                    sel_campo = opcoes_chaves[opcoes_label.index(sel_label)]
-                    unidade   = CAMPOS_MEDIDAS[sel_campo][1]
-
-                    df_med = pd.DataFrame([
-                        {"data": datetime.strptime(m["data_registro"], "%Y-%m-%d"), "valor": float(m[sel_campo])}
-                        for m in medidas_ord if m.get(sel_campo)
-                    ])
-                    chart_med = (
-                        alt.Chart(df_med)
-                        .mark_line(point=True, color="#a855f7", strokeWidth=2)
-                        .encode(
-                            x=alt.X("data:T", title="Data"),
-                            y=alt.Y("valor:Q", title=f"{sel_label} ({unidade})", scale=alt.Scale(zero=False)),
-                            tooltip=[alt.Tooltip("data:T", title="Data"), alt.Tooltip("valor:Q", title=f"{sel_label}")]
-                        )
-                        .properties(height=220)
-                    )
-                    st.altair_chart(chart_med, use_container_width=True)
-
-                if len(medidas_ord) >= 2:
-                    st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">ANTES vs AGORA</h3>', unsafe_allow_html=True)
-                    d_ini = datetime.strptime(primeiro["data_registro"], "%Y-%m-%d")
-                    d_fim = datetime.strptime(ultimo["data_registro"],  "%Y-%m-%d")
-                    dias_entre = (d_fim - d_ini).days
-
-                    st.markdown(
-                        f'<div style="background:#111118;border:1px solid #1e1e2e;border-radius:12px;'
-                        f'padding:10px 16px;margin-bottom:16px;font-size:0.85rem;color:#888;">'
-                        f'📅 Primeiro registro: <strong style="color:#fff;">'
-                        f'{d_ini.day} de {MESES_BR[d_ini.month]} de {d_ini.year}</strong>'
-                        f'&nbsp;&nbsp;→&nbsp;&nbsp;'
-                        f'Último: <strong style="color:#fff;">'
-                        f'{d_fim.day} de {MESES_BR[d_fim.month]} de {d_fim.year}</strong>'
-                        f'&nbsp;&nbsp;•&nbsp;&nbsp;{dias_entre} dias de acompanhamento</div>',
-                        unsafe_allow_html=True
-                    )
-
-                    cards_html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">'
-                    algum_card = False
-
-                    for campo, (label, unidade) in CAMPOS_MEDIDAS.items():
-                        v_ini = primeiro.get(campo)
-                        v_fim = ultimo.get(campo)
-                        if not v_ini or not v_fim:
-                            continue
-                        v_ini = float(v_ini)
-                        v_fim = float(v_fim)
-                        diff  = v_fim - v_ini
-                        pct   = (diff / v_ini * 100) if v_ini else 0
-
-                        campos_reduzir = {"cintura", "quadril", "percentual_gordura", "peso"}
-                        if campo in campos_reduzir:
-                            cor_diff = "#22c55e" if diff < 0 else ("#ef4444" if diff > 0 else "#888")
-                        else:
-                            cor_diff = "#22c55e" if diff > 0 else ("#ef4444" if diff < 0 else "#888")
-
-                        sinal = "+" if diff > 0 else ""
-                        algum_card = True
-                        cards_html += (
-                            f'<div style="background:#111118;border:1px solid #1e1e2e;border-radius:14px;padding:14px;">'
-                            f'<div style="font-size:0.75rem;color:#666;margin-bottom:4px;">{label}</div>'
-                            f'<div style="display:flex;justify-content:space-between;align-items:flex-end;">'
-                            f'<div>'
-                            f'<span style="font-size:0.8rem;color:#555;">Antes </span>'
-                            f'<span style="font-size:1rem;color:#aaa;">{v_ini:.1f}{unidade}</span><br>'
-                            f'<span style="font-size:0.8rem;color:#555;">Agora </span>'
-                            f'<span style="font-size:1.15rem;font-weight:700;color:#fff;">{v_fim:.1f}{unidade}</span>'
-                            f'</div>'
-                            f'<div style="text-align:right;">'
-                            f'<span style="font-size:1rem;font-weight:700;color:{cor_diff};">{sinal}{diff:.1f}{unidade}</span><br>'
-                            f'<span style="font-size:0.75rem;color:{cor_diff};">{sinal}{pct:.1f}%</span>'
-                            f'</div>'
-                            f'</div>'
-                            f'</div>'
-                        )
-
-                    cards_html += '</div>'
-                    if algum_card:
-                        st.markdown(cards_html, unsafe_allow_html=True)
-                    else:
-                        st.info("Registre pelo menos 2 avaliações para ver o comparativo.")
-                else:
-                    st.info("Registre pelo menos 2 avaliações para ver o progresso completo.")
-
-            else:
-                for m in medidas_hist:
-                    d_m   = datetime.strptime(m["data_registro"], "%Y-%m-%d")
-                    d_str = f"{d_m.day} de {MESES_BR[d_m.month]} de {d_m.year}"
-                    with st.container():
-                        st.markdown(
-                            f'<div class="hist-card">'
-                            f'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
-                            f'<strong style="font-size:1.1rem;color:#22c55e;">⚖️ {m["peso"]} kg</strong>'
-                            f'<span style="color:#666;font-size:0.85rem;">{d_str}</span>'
-                            f'</div>',
-                            unsafe_allow_html=True
-                        )
-                        c1, c2, c3 = st.columns(3)
-                        with c1:
-                            if m.get("percentual_gordura"): st.write(f"**BF:** {m['percentual_gordura']}%")
-                            if m.get("ombro"):              st.write(f"**Ombro:** {m['ombro']}cm")
-                            if m.get("peito"):              st.write(f"**Peito:** {m['peito']}cm")
-                            if m.get("cintura"):            st.write(f"**Cintura:** {m['cintura']}cm")
-                        with c2:
-                            if m.get("braço_direito"):  st.write(f"**Braço Dir:** {m['braço_direito']}cm")
-                            if m.get("braço_esquerdo"): st.write(f"**Braço Esq:** {m['braço_esquerdo']}cm")
-                            if m.get("quadril"):        st.write(f"**Quadril:** {m['quadril']}cm")
-                        with c3:
-                            if m.get("coxa_direita"):         st.write(f"**Coxa Dir:** {m['coxa_direita']}cm")
-                            if m.get("coxa_esquerda"):        st.write(f"**Coxa Esq:** {m['coxa_esquerda']}cm")
-                            if m.get("panturrilha_direita"):  st.write(f"**Pant. Dir:** {m['panturrilha_direita']}cm")
-                            if m.get("panturrilha_esquerda"): st.write(f"**Pant. Esq:** {m['panturrilha_esquerda']}cm")
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        if st.button("Excluir Registro", key=f"del_m_{m['id']}"):
-                            if deletar_medida(m["id"]):
-                                st.rerun()
+            st.markdown("### Histórico de Medidas")
+            for m in historico_medidas:
+                dt_m = datetime.strptime(m["data_registro"], "%Y-%m-%d")
+                data_m_formatada = f"{dt_m.day} de {MESES_BR[dt_m.month]} de {dt_m.year}"
+                
+                with st.expander(f"📋 Registro de {data_m_formatada} — {m['peso']} kg"):
+                    c_l, c_r = st.columns(2)
+                    with c_l:
+                        st.write(f"**Peso:** {m['peso']} kg")
+                        if m.get("percentual_gordura"): st.write(f"**BF (%):** {m['percentual_gordura']}%")
+                        if m.get("cintura"): st.write(f"**Cintura:** {m['cintura']} cm")
+                        if m.get("peito"): st.write(f"**Peitoral:** {m['peito']} cm")
+                        if m.get("ombro"): st.write(f"**Ombro:** {m['ombro']} cm")
+                        if m.get("quadril"): st.write(f"**Quadril:** {m['quadril']} cm")
+                    with c_r:
+                        if m.get("braço_direito") or m.get("braço_esquerdo"):
+                            st.write(f"**Braço (D/E):** {m.get('braço_direito','-')}cm / {m.get('braço_esquerdo','-')}cm")
+                        if m.get("coxa_direita") or m.get("coxa_esquerda"):
+                            st.write(f"**Coxa (D/E):** {m.get('coxa_direita','-')}cm / {m.get('coxa_esquerda','-')}cm")
+                        if m.get("panturrilha_direita") or m.get("panturrilha_esquerda"):
+                            st.write(f"**Panturrilha (D/E):** {m.get('panturrilha_direita','-')}cm / {m.get('panturrilha_esquerda','-')}cm")
+                    
+                    if st.button("Deletar Medida", key=f"del_med_{m['id']}", type="secondary"):
+                        if deletar_medida(m["id"]):
+                            st.success("Medida removida.")
+                            st.rerun()
 
     # ── ABA PERFIL ──────────────────────────────────────────────────────────────
-    elif st.session_state.aba_atual == "👤 Perfil":
-        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Meu Perfil</h2>', unsafe_allow_html=True)
+    elif st.session_state.aba_atual == "Perfil":
+        st.markdown('<h2 style="font-family:Bebas Neue,sans-serif;letter-spacing:.05em">Configurações do Meu Perfil</h2>', unsafe_allow_html=True)
+        
+        # Gerenciamento de exercícios customizados cadastrados por esta conta
+        st.markdown("### Meus Exercícios Customizados")
+        EXERCICIOS_CUSTOM_CONTA = buscar_exercicios_custom(username)
+        if not EXERCICIOS_CUSTOM_CONTA:
+            st.info("Você ainda não criou nenhum exercício personalizado.")
+        else:
+            for grupo_c, lista_c in EXERCICIOS_CUSTOM_CONTA.items():
+                st.markdown(f"**{grupo_c}**")
+                for nome_c in lista_c:
+                    col_ex_nome, col_ex_btn = st.columns([8, 2])
+                    col_ex_nome.write(f"   - {nome_c}")
+                    if col_ex_btn.button("Remover", key=f"del_custom_list_{grupo_c}_{nome_c.replace(' ', '_')}"):
+                        if deletar_exercicio_custom(username, nome_c, grupo_c):
+                            invalidar_cache_custom()
+                            st.success(f"Removido: {nome_c}")
+                            st.rerun()
+
+        st.markdown("---")
+        st.markdown("### Dados da Conta")
         
         if not st.session_state.editando_perfil:
             st.write(f"**Nome:** {perfil.get('nome')}")
-            st.write(f"**Usuário:** {perfil.get('username')}")
             st.write(f"**Objetivo:** {perfil.get('objetivo')}")
-            st.write(f"**Frequência Semanal:** {perfil.get('dias_por_semana', 4)} dias")
-            st.write(f"**Duração Alvo:** {perfil.get('tempo_disponivel')}")
+            st.write(f"**Frequência Desejada:** {perfil.get('dias_por_semana')} dias na semana")
+            st.write(f"**Tempo Disponível:** {perfil.get('tempo_disponivel')}")
             
-            if st.button("📝 Editar Dados", use_container_width=True):
+            if st.button("✏️ Editar Parâmetros do Perfil", use_container_width=True):
                 st.session_state.editando_perfil = True
                 st.rerun()
-
-            st.markdown("---")
-            st.markdown('<h3 style="font-family:Bebas Neue,sans-serif;">Meus Exercícios Personalizados</h3>', unsafe_allow_html=True)
-
-            custom = buscar_exercicios_custom(username)
-            if not custom:
-                st.info("Você ainda não criou nenhum exercício personalizado.")
-            else:
-                for grupo_c, nomes in custom.items():
-                    st.markdown(f"**{grupo_c}**")
-                    for nome_c in nomes:
-                        col_nome, col_del = st.columns([8, 1])
-                        with col_nome:
-                            st.markdown(
-                                f'<div style="background:#111118;border-left:3px solid #e53935;'
-                                f'border-radius:8px;padding:8px 12px;margin-bottom:4px;font-size:0.9rem;">'
-                                f'{nome_c}</div>',
-                                unsafe_allow_html=True
-                            )
-                        with col_del:
-                            if st.button("🗑", key=f"del_custom_{grupo_c}_{nome_c}"):
-                                if deletar_exercicio_custom(username, nome_c, grupo_c):
-                                    invalidar_cache_custom()
-                                    st.rerun()
         else:
-            nome_e = st.text_input("Nome", value=perfil.get("nome", ""))
-            obj_e = st.selectbox("Objetivo", OBJETIVOS, index=OBJETIVOS.index(perfil.get("objetivo")) if perfil.get("objetivo") in OBJETIVOS else 0)
-            dias_e = st.selectbox("Dias por Semana", [3,4,5,6], index=[3,4,5,6].index(perfil.get("dias_por_semana")) if perfil.get("dias_por_semana") in [3,4,5,6] else 1)
-            tempo_e = st.selectbox("Tempo Estimado", TEMPOS, index=TEMPOS.index(perfil.get("tempo_disponivel")) if perfil.get("tempo_disponivel") in TEMPOS else 1)
-            
-            col_s1, col_s2 = st.columns(2)
-            with col_s1:
-                if st.button("💾 Salvar Alterações", type="primary", use_container_width=True):
-                    up = atualizar_perfil(username, nome_e, obj_e, dias_e, tempo_e)
-                    if up:
-                        st.session_state.perfil = up
+            with st.form("form_editar_perfil"):
+                n_nome = st.text_input("Nome completo", value=perfil.get("nome",""))
+                n_obj  = st.selectbox("Objetivo", OBJETIVOS, index=OBJETIVOS.index(perfil.get("objetivo")) if perfil.get("objetivo") in OBJETIVOS else 0)
+                n_dias = st.selectbox("Dias por semana", [3,4,5,6], index=[3,4,5,6].index(perfil.get("dias_por_semana")) if perfil.get("dias_por_semana") in [3,4,5,6] else 0)
+                n_temp = st.selectbox("Tempo disponível", TEMPOS, index=TEMPOS.index(perfil.get("tempo_disponivel")) if perfil.get("tempo_disponivel") in TEMPOS else 0)
+                
+                c_salvar, c_cancelar = st.columns(2)
+                if c_salvar.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True):
+                    res_p = atualizar_perfil(username, n_nome, n_obj, n_dias, n_temp)
+                    if res_p:
+                        st.session_state.perfil = res_p
                         st.session_state.editando_perfil = False
-                        st.success("Configurações atualizadas!")
+                        st.success("Perfil atualizado!")
                         st.rerun()
-            with col_s2:
-                if st.button("Cancelar", use_container_width=True):
+                        
+                if c_cancelar.form_submit_button("Cancelar", use_container_width=True):
                     st.session_state.editando_perfil = False
                     st.rerun()
